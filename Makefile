@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+CONFIG_RTL8822ES = m
+export CONFIG_RTL8822ES
+obj-$(CONFIG_RTL8822ES) += rtl8822es/
+
+CONFIG_RTL8852BE = m
+export CONFIG_RTL8852BE
+obj-$(CONFIG_RTL8852BE) += rtl8852be/
