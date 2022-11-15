@@ -1,7 +1,0 @@
-0x3ea4c401	rtkm_kzalloc	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
-0x1276bddc	rtkm_kmalloc	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
-0xa94a383b	rtkm_prealloc_destroy	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
-0x81cf5964	rtkm_dump_mstatus	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
-0x180eb668	rtkm_kfree	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
-0x25574788	rtkm_prealloc_init	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
-0x13de0789	rtkm_set_trace	/home/hwg/android12/vendor/rockchip/common/wifi/driver/rtl8852be/rtkm	EXPORT_SYMBOL
