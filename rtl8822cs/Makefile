@@ -1721,6 +1721,7 @@ EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE
 ifeq ($(CONFIG_SDIO_HCI), y)
 EXTRA_CFLAGS += -DRTW_SUPPORT_PLATFORM_SHUTDOWN
 endif
+EXTRA_CFLAGS += -DCONFIG_RTW_IOCTL_SET_COUNTRY
 # default setting for Special function
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/Rockchip/Rk3188/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
