@@ -18,7 +18,7 @@
 #if (BT_SUPPORT == 1 && COEX_SUPPORT == 1)
 
 static u8 *trace_buf = &gl_btc_trace_buf[0];
-static const u32 coex_ver_date = 20210504;
+static const u32 coex_ver_date = 20230103;
 static const u32 coex_ver = 0x23;
 
 static u8
@@ -1657,7 +1657,7 @@ void rtw_btc_tdma(struct btc_coexist *btc, boolean force_exec, u32 tcase)
 	BTC_TRACE(trace_buf);
 
 	/* TRUE -> Page scan > ACL */
-	if (!wifi_busy ||
+	if (!turn_on ||
 	    (coex_sta->bt_a2dp_exist && coex_sta->bt_inq_page_remain)) {
 		if (chip_para->scbd_bit_num == BTC_SCBD_16_BIT)
 			btc->btc_write_scbd(btc, BTC_SCBD_TDMA, FALSE);
