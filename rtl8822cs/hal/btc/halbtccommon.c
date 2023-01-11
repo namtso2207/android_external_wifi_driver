@@ -18,7 +18,7 @@
 #if (BT_SUPPORT == 1 && COEX_SUPPORT == 1)
 
 static u8 *trace_buf = &gl_btc_trace_buf[0];
-static const u32 coex_ver_date = 20230103;
+static const u32 coex_ver_date = 20230109;
 static const u32 coex_ver = 0x23;
 
 static u8
@@ -302,10 +302,11 @@ rtw_btc_freerun_check(struct btc_coexist *btc)
 		return TRUE;
 
 	/* ant_distance = 5 ~ 40  */
-	if (BTC_RSSI_HIGH(coex_dm->wl_rssi_state[1]) &&
-	    BTC_RSSI_HIGH(coex_dm->bt_rssi_state[0]))
+	if (BTC_RSSI_HIGH(coex_dm->wl_rssi_state[2]) &&
+	    BTC_RSSI_HIGH(coex_dm->bt_rssi_state[0]) &&
+	    coex_sta->cnt_wl[BTC_CNT_WL_SCANAP] <= 25)
 		return TRUE;
-
+#if 0
 	if (link_info_ext->traffic_dir == BTC_WIFI_TRAFFIC_TX)
 		bt_rssi = coex_dm->bt_rssi_state[0];
 	else
@@ -315,7 +316,7 @@ rtw_btc_freerun_check(struct btc_coexist *btc)
 	    BTC_RSSI_HIGH(bt_rssi) &&
 	    coex_sta->cnt_wl[BTC_CNT_WL_SCANAP] <= 5)
 		return TRUE;
-
+#endif
 	return FALSE;
 }
 
@@ -2514,13 +2515,13 @@ static void rtw_btc_action_bt_inquiry(struct btc_coexist *btc)
 			BTC_SPRINTF(trace_buf, BT_TMP_BUF_SIZE,
 				    "[BTCoex], bt inq/page +  wifi busy\n");
 
-			table_case = 114;
-			tdma_case = 121;
+			table_case = 100;
+			tdma_case = 100;
 		} else if (link_info_ext->is_connected) {
 			BTC_SPRINTF(trace_buf, BT_TMP_BUF_SIZE,
 				    "[BTCoex], bt inq/page +  wifi connected\n");
 
-			table_case = 101;
+			table_case = 100;
 			tdma_case = 100;
 		} else {
 			BTC_SPRINTF(trace_buf, BT_TMP_BUF_SIZE,
@@ -2681,8 +2682,8 @@ static void rtw_btc_action_bt_a2dp(struct btc_coexist *btc)
 		else
 			tdma_case = 13;
 	} else { /* Non-Shared-Ant */
-		table_case = 121;
-		tdma_case = 113;
+		table_case = 112;
+		tdma_case = 112;
 	}
 
 	rtw_btc_table(btc, NM_EXCU, table_case);
@@ -2804,11 +2805,11 @@ static void rtw_btc_action_bt_a2dp_hid(struct btc_coexist *btc)
 		}
 	} else { /* Non-Shared-Ant */
 		if (coex_sta->bt_ble_exist)
-			table_case = 110;
+			table_case = 112;
 		else
-			table_case = 121;
+			table_case = 112;
 
-		tdma_case = 113;
+		tdma_case = 112;
 	}
 
 	rtw_btc_table(btc, NM_EXCU, table_case);
