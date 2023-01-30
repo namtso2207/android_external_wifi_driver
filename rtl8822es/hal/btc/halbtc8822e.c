@@ -166,10 +166,10 @@ static const struct btc_rf_para rf_para_tx_8822e[] = {
 				{15, 5, TRUE, 4},
 				{7, 8, TRUE, 4},
 				{6, 10, TRUE, 4},
-				{16, 4, TRUE, 4}, /* 10 for A2DP SDR */
-				{15, 5, TRUE, 4},
-				{7, 8, TRUE, 4},
-				{6, 10, TRUE, 4},
+				{16, 15, TRUE, 4}, /* 10 for A2DP SDR */
+				{15, 15, TRUE, 4},
+				{7, 15, TRUE, 4},
+				{6, 15, TRUE, 4},
 				{16, 4, TRUE, 4}, /* 14 for A2DP OFC */
 				{15, 5, TRUE, 4},
 				{7, 8, TRUE, 4},
@@ -194,16 +194,16 @@ static const struct btc_rf_para rf_para_rx_8822e[] = {
 				{15, 5, TRUE, 5},
 				{7, 8, TRUE, 5},
 				{6, 10, TRUE, 5},
-				{16, 4, TRUE, 5}, /* 10 for A2DP SDR */
-				{15, 5, TRUE, 5},
-				{7, 8, TRUE, 5},
-				{6, 10, TRUE, 5},
+				{16, 15, FALSE, 7}, /* 10 for A2DP SDR */
+				{15, 15, FALSE, 7},
+				{7, 15, FALSE, 7},
+				{6, 15, FALSE, 7},
 				{16, 4, TRUE, 5}, /* 14 for A2DP OFC */
 				{15, 5, TRUE, 5},
 				{7, 8, TRUE, 5},
 				{6, 10, TRUE, 5},
-				{16, 4, TRUE, 5}, /* 18 for A2DP+RCU SDR */
-				{15, 5, TRUE, 5},
+				{16, 15, FALSE, 7}, /* 18 for A2DP+RCU SDR */
+				{15, 15, FALSE, 7},
 				{7, 8, TRUE, 5},
 				{6, 10, TRUE, 5},
 				{16, 4, TRUE, 5}, /* 22 for A2DP+RCU OFC */

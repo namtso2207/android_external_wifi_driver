@@ -18,7 +18,7 @@
 #if (BT_SUPPORT == 1 && COEX_SUPPORT == 1)
 
 static u8 *trace_buf = &gl_btc_trace_buf[0];
-static const u32 coex_ver_date = 20220722;
+static const u32 coex_ver_date = 20230130;
 static const u32 coex_ver = 0x2d;
 
 static u8
