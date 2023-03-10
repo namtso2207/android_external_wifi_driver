@@ -2,7 +2,7 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2022, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -146,7 +146,8 @@
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func)
 #else
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func, _work)
-#if (!(LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 18) && defined(RHEL_MAJOR) && (RHEL_MAJOR == 5)))
+#if !(LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 18) && defined(RHEL_MAJOR) && \
+	(RHEL_MAJOR == 5))
 /* Exclude RHEL 5 */
 typedef void (*work_func_t)(void *work);
 #endif
@@ -348,11 +349,13 @@ static inline void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 	}
 	return ret;
 }
+
 static inline void pci_free_consistent(struct pci_dev *hwdev, size_t size,
                                        void *vaddr, dma_addr_t dma_handle)
 {
 	free_pages((unsigned long)vaddr, get_order(size));
 }
+
 #ifdef ILSIM
 extern uint pci_map_single(void *dev, void *va, uint size, int direction);
 extern void pci_unmap_single(void *dev, uint pa, uint size, int direction);
@@ -468,6 +471,7 @@ static inline void tasklet_init(struct tasklet_struct *tasklet,
 	tasklet->routine = (void (*)(void *))func;
 	tasklet->data = (void *)data;
 }
+
 #define tasklet_kill(tasklet)	{ do {} while (0); }
 
 /* 2.4.x introduced del_timer_sync() */
@@ -642,11 +646,21 @@ extern char* dhd_dbg_get_system_timestamp(void);
 #endif
 #define DHD_LOG_PREFIXS DHD_LOG_PREFIX" "
 #ifdef DHD_DEBUG
+#ifndef CUSTOM_PREFIX
 #define	printf_thr(fmt, args...)	printk(PERCENT_S DHD_LOG_PREFIXS fmt, PRINTF_SYSTEM_TIME, ## args)
 #define DBG_THR(args)		do {printf_thr args;} while (0)
 #else
+extern char* osl_get_rtctime(void);
+#define DBG_THR_PREFIX "[%s]"CUSTOM_PREFIX, osl_get_rtctime()
+#define DBG_THR(x)	\
+do {	\
+	pr_cont(DBG_THR_PREFIX);	\
+	pr_cont x;			\
+} while (0)
+#endif /* !CUSTOM_PREFIX */
+#else
 #define DBG_THR(x)
-#endif
+#endif /* DHD_DEBUG */
 
 extern unsigned long osl_spin_lock(void *lock);
 extern void osl_spin_unlock(void *lock, unsigned long flags);
@@ -692,7 +706,7 @@ static inline bool binary_sema_up(tsk_ctl_t *tsk)
 	return sem_up;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
+#if  (LINUX_VERSION_CODE > KERNEL_VERSION(5, 6, 0))
 #define SMP_RD_BARRIER_DEPENDS(x)
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
 #define SMP_RD_BARRIER_DEPENDS(x) smp_read_barrier_depends(x)
@@ -940,6 +954,46 @@ int kernel_read_compat(struct file *file, loff_t offset, char *addr, unsigned lo
 #else /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) */
 #define kernel_read_compat(file, offset, addr, count) kernel_read(file, offset, addr, count)
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
+#define timespec64 timespec
+#define ktime_get_real_ts64(timespec) ktime_get_real_ts(timespec)
+#define ktime_to_timespec64(timespec) ktime_to_timespec(timespec)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0) */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)) && (LINUX_VERSION_CODE >= \
+	KERNEL_VERSION(4, 20, 0))
+static inline void get_monotonic_boottime(struct timespec *ts)
+{
+	*ts = ktime_to_timespec(ktime_get_boottime());
+}
+#endif /* LINUX_VER >= 4.20 */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)) && (LINUX_VERSION_CODE >= \
+	KERNEL_VERSION(5, 0, 0))
+static inline void do_gettimeofday(struct timeval *tv)
+{
+	struct timespec64 now;
+
+	ktime_get_real_ts64(&now);
+	tv->tv_sec = now.tv_sec;
+	tv->tv_usec = now.tv_nsec/1000;
+}
+#endif /* LINUX_VER >= 5.0 */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
+#define GETFS_AND_SETFS_TO_KERNEL_DS(fs) \
+{ \
+	fs = get_fs(); \
+	set_fs(KERNEL_DS); \
+}
+
+#define SETFS(fs) set_fs(fs)
+#else
+/* From 5.10 kernel get/set_fs are obsolete and direct kernel_read/write operations can be used */
+#define GETFS_AND_SETFS_TO_KERNEL_DS(fs) BCM_REFERENCE(fs)
+#define SETFS(fs) BCM_REFERENCE(fs)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0) */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 32)
 #define netdev_tx_t int

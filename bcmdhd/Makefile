@@ -1,5 +1,24 @@
-# SPDX-License-Identifier: GPL-2.0
 # bcmdhd
+#
+# Copyright (C) 2022, Broadcom.
+#
+#      Unless you and Broadcom execute a separate written software license
+# agreement governing use of this software, this software is licensed to you
+# under the terms of the GNU General Public License version 2 (the "GPL"),
+# available at http://www.broadcom.com/licenses/GPLv2.php, with the
+# following added to such license:
+#
+#      As a special exception, the copyright holders of this software give you
+# permission to link this software with independent modules, and to copy and
+# distribute the resulting executable under terms of your choice, provided that
+# you also meet, for each linked independent module, the terms and conditions of
+# the license of that module.  An independent module is a module which is not
+# derived from this software.  The special exception does not apply to any
+# modifications of the software.
+#
+#
+# <<Broadcom-WL-IPTag/Open:>>
+#
 
 MODULE_NAME := bcmdhd
 CONFIG_AP6XXX ?= m
@@ -33,10 +52,11 @@ CONFIG_MACH_PLATFORM := y
 #CONFIG_BCMDHD_DTS := y
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
+	-Wno-uninitialized -Wno-implicit-function-declaration               \
 	-Wno-implicit-fallthrough -Wno-declaration-after-statement            \
 	-Wno-fortify-source -Wno-unused-but-set-variable                      \
-	-Wno-vla -Wno-vla-extension					      \
-	-Dlinux -DLINUX -DBCMDRIVER                                           \
+	-Wno-vla -Wno-vla-extension                                           \
+	-Dlinux -DLINUX -DBCMDRIVER -DBCMUTILS_ERR_CODES                      \
 	-DBCMDONGLEHOST -DBCMDMA32 -DBCMFILEIMAGE                             \
 	-DDHDTHREAD -DDHD_DEBUG -DSHOW_EVENTS -DGET_OTP_MAC_ENABLE            \
 	-DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT -DSUPPORT_PM2_ONLY             \
@@ -48,7 +68,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
 	-DUSE_NEW_RSPEC_DEFS                                                  \
 	-DWL_EXT_IAPSTA -DWL_ESCAN -DCCODE_LIST -DSUSPEND_EVENT               \
 	-DKEY_INSTALL_CHECK                                                   \
-	-DENABLE_INSMOD_NO_FW_LOAD -DWL_SCHED_SCAN
+	-DENABLE_INSMOD_NO_FW_LOAD
 
 DHDOFILES = aiutils.o siutils.o sbutils.o                                 \
 	bcmutils.o bcmwifi_channels.o bcmxtlv.o bcm_app_utils.o bcmstdlib_s.o \
@@ -57,7 +77,8 @@ DHDOFILES = aiutils.o siutils.o sbutils.o                                 \
 	bcmevent.o hndpmu.o linux_osl.o wldev_common.o wl_android.o           \
 	dhd_debug_linux.o dhd_debug.o dhd_mschdbg.o dhd_dbg_ring.o            \
 	hnd_pktq.o hnd_pktpool.o linux_pkt.o frag.o                           \
-	dhd_linux_exportfs.o dhd_linux_pktdump.o dhd_mschdbg.o                \
+	dhd_linux_exportfs.o dhd_linux_pktdump.o dhd_mschdbg.o linuxerrmap.o  \
+	dhd_linux_tx.o dhd_linux_rx.o                                         \
 	dhd_config.o dhd_ccode.o wl_event.o wl_android_ext.o                  \
 	wl_iapsta.o wl_escan.o wl_timer.o
 
@@ -70,8 +91,10 @@ ifneq ($(CONFIG_CFG80211),)
 	DHDOFILES += wl_linux_mon.o wl_cfg_btcoex.o wl_cfgvendor.o
 	DHDOFILES += dhd_cfg80211.o wl_cfgvif.o wl_roam.o
 	DHDCFLAGS += -DWL_CFG80211 -DWLP2P -DWL_CFG80211_STA_EVENT
-	DHDCFLAGS += -DWL_CAP_HE
-#	DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
+	DHDCFLAGS += -DWL_CFG80211_GON_COLLISION
+	DHDCFLAGS += -DWL_CAP_HE -DWL_6G_BAND -DWL_5P9G
+#	DHDCFLAGS += -DCONFIG_6GHZ_BKPORT
+	DHDCFLAGS += -DWL_IFACE_COMB_NUM_CHANNELS
 	DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=10
 	DHDCFLAGS += -DWL_SUPPORT_AUTO_CHANNEL
 	DHDCFLAGS += -DWL_SUPPORT_BACKPORTED_KPATCHES
@@ -79,21 +102,24 @@ ifneq ($(CONFIG_CFG80211),)
 	DHDCFLAGS += -DVSDB -DWL_CFG80211_VSDB_PRIORITIZE_SCAN_REQUEST
 	DHDCFLAGS += -DWLTDLS -DMIRACAST_AMPDU_SIZE=8
 #    DHDCFLAGS += -DHOSTAPD_BW_SUPPORT
-#    DHDCFLAGS += -DHOSTAPD_EID_EXTENSION_SUPPORT
-	DHDCFLAGS += -DWL_VIRTUAL_APSTA -DSTA_MGMT
-	DHDCFLAGS += -DPNO_SUPPORT -DEXPLICIT_DISCIF_CLEANUP
+	DHDCFLAGS += -DWL_VIRTUAL_APSTA -DSTA_MGMT -DSOFTAP_UAPSD_OFF
+	DHDCFLAGS += -DNUM_SCB_MAX_PROBE=3
+	DHDCFLAGS += -DWL_SCB_TIMEOUT=10
+	DHDCFLAGS += -DEXPLICIT_DISCIF_CLEANUP
 	DHDCFLAGS += -DDHD_USE_SCAN_WAKELOCK
 	DHDCFLAGS += -DSPECIFIC_MAC_GEN_SCHEME
 	DHDCFLAGS += -DWL_IFACE_MGMT
 	DHDCFLAGS += -DSUPPORT_RSSI_SUM_REPORT
-	DHDCFLAGS += -DWLFBT -DWL_GCMP_SUPPORT -DWL_OWE
-	DHDCFLAGS += -DROAM_CHANNEL_CACHE -DDHD_LOSSLESS_ROAMING -DWL_ROAM_WAR
-#	DHDCFLAGS += -DVNDR_IE_WAR -DGET_FW_IE_DATA
+	DHDCFLAGS += -DWLFBT -DWL_GCMP_SUPPORT -DWL_OWE -DWL_SAE_FT
+	DHDCFLAGS += -DROAM_CHANNEL_CACHE -DDHD_LOSSLESS_ROAMING
 #	DHDCFLAGS += -DWL_CFGVENDOR_SEND_HANG_EVENT
 	DHDCFLAGS += -DGTK_OFFLOAD_SUPPORT
-	DHDCFLAGS += -DRESTART_AP_WAR
-	DHDCFLAGS += -DWL_STATIC_IF
+	DHDCFLAGS += -DWL_STATIC_IF #-DDHD_MAX_STATIC_IFS=2
 	DHDCFLAGS += -DWL_CLIENT_SAE
+	DHDCFLAGS += -DCONNECT_INFO_WAR -DWL_ROAM_WAR
+	DHDCFLAGS += -DVNDR_IE_WAR
+	DHDCFLAGS += -DRESTART_AP_WAR -DRXF0OVFL_REINIT_WAR
+	DHDCFLAGS += -DWL_SCHED_SCAN
 endif
 
 #BCMDHD_SDIO
@@ -104,7 +130,8 @@ DHDCFLAGS += -DBCMSDIO -DMMC_SDIO_ABORT -DUSE_SDIOFIFO_IOVAR -DBCMLXSDMMC \
 	-DBCMSDIOH_TXGLOM -DBCMSDIOH_TXGLOM_EXT -DBCMSDIOH_STATIC_COPY_BUF    \
 	-DRXFRAME_THREAD -DDHDENABLE_TAILPAD -DSUPPORT_P2P_GO_PS              \
 	-DBCMSDIO_RXLIM_POST -DBCMSDIO_TXSEQ_SYNC -DCONSOLE_DPC               \
-	-DBCMSDIO_INTSTATUS_WAR -DMMC_SW_RESET -DMMC_HW_RESET
+	-DBCMSDIO_INTSTATUS_WAR
+DHDCFLAGS += -DMMC_HW_RESET -DMMC_SW_RESET #-DBUS_POWER_RESTORE
 ifeq ($(CONFIG_BCMDHD_OOB),y)
 	DHDCFLAGS += -DOOB_INTR_ONLY -DCUSTOMER_OOB -DHW_OOB
 ifeq ($(CONFIG_BCMDHD_DISABLE_WOWLAN),y)
@@ -120,14 +147,23 @@ endif
 #BCMDHD_PCIE
 ifneq ($(CONFIG_BCMDHD_PCIE),)
 BUS_TYPE := pcie
-DHDCFLAGS += -DPCIE_FULL_DONGLE -DBCMPCIE -DCUSTOM_DPC_PRIO_SETTING=-1    \
-	-DDONGLE_ENABLE_ISOLATION
-DHDCFLAGS += -DDHD_LB -DDHD_LB_RXP -DDHD_LB_STATS -DDHD_LB_TXP
-#DHDCFLAGS += -DDHD_PKTID_AUDIT_ENABLED
-DHDCFLAGS += -DINSMOD_FW_LOAD
-DHDCFLAGS += -DCONFIG_HAS_WAKELOCK #-DDHD_DEBUG_WAKE_LOCK
-DHDCFLAGS += -DDHD_PACKET_TIMEOUT_MS=50 -DMAX_TX_TIMEOUT=50
-#DHDCFLAGS += -DDHD_PCIE_RUNTIMEPM -DMAX_IDLE_COUNT=11 -DCUSTOM_DHD_RUNTIME_MS=100
+	DHDCFLAGS += -DPCIE_FULL_DONGLE -DBCMPCIE -DCUSTOM_DPC_PRIO_SETTING=-1
+	DHDCFLAGS += -DDONGLE_ENABLE_ISOLATION
+	DHDCFLAGS += -DDHD_LB -DDHD_LB_RXP -DDHD_LB_STATS -DDHD_LB_TXP
+	DHDCFLAGS += -DDHD_LB_PRIMARY_CPUS=0xF0 -DDHD_LB_SECONDARY_CPUS=0x0E
+#	DHDCFLAGS += -DDHD_PKTID_AUDIT_ENABLED
+	DHDCFLAGS += -DEAPOL_PKT_PRIO -DENABLE_DHD_GRO
+	DHDCFLAGS += -DDHD_SKIP_DONGLE_RESET_IN_ATTACH
+	DHDCFLAGS += -DDHD_DONGLE_TRAP_IN_DETACH
+	DHDCFLAGS += -DFORCE_DONGLE_RESET_IN_DEVRESET_ON
+	DHDCFLAGS += -DDHD_USE_COHERENT_MEM_FOR_RING
+	DHDCFLAGS += -DCHECK_TRAP_ROT
+	DHDCFLAGS += -DINSMOD_FW_LOAD
+	DHDCFLAGS += -DCONFIG_HAS_WAKELOCK #-DDHD_DEBUG_WAKE_LOCK
+	DHDCFLAGS += -DDHD_PACKET_TIMEOUT_MS=50 -DMAX_TX_TIMEOUT=50
+ifeq ($(CONFIG_AP6XXX),y)
+	DHDCFLAGS += -DWAKEUP_KSOFTIRQD_POST_NAPI_SCHEDULE
+endif
 ifeq ($(CONFIG_BCMDHD_OOB),y)
 	DHDCFLAGS += -DCUSTOMER_OOB -DBCMPCIE_OOB_HOST_WAKE -DHW_OOB
 endif
@@ -135,7 +171,7 @@ ifneq ($(CONFIG_PCI_MSI),)
 	DHDCFLAGS += -DDHD_MSI_SUPPORT
 endif
 DHDOFILES += dhd_pcie.o dhd_pcie_linux.o pcie_core.o dhd_flowring.o       \
-	dhd_msgbuf.o dhd_linux_lb.o
+	dhd_msgbuf.o dhd_linux_lb.o fwpkg_utils.o
 endif
 
 #BCMDHD_USB
@@ -188,9 +224,11 @@ endif
 ifeq ($(CONFIG_BCMDHD_PROPTXSTATUS),y)
 ifneq ($(CONFIG_BCMDHD_USB),)
 	DHDCFLAGS += -DPROP_TXSTATUS
+	DHDCFLAGS += -DLIMIT_BORROW -DBULK_DEQUEUE
 endif
 ifneq ($(CONFIG_BCMDHD_SDIO),)
 	DHDCFLAGS += -DPROP_TXSTATUS -DPROPTX_MAXCOUNT
+	DHDCFLAGS += -DLIMIT_BORROW -DBULK_DEQUEUE
 endif
 ifneq ($(CONFIG_CFG80211),)
 	DHDCFLAGS += -DPROP_TXSTATUS_VSDB
@@ -206,17 +244,19 @@ endif
 ifneq ($(CONFIG_BCMDHD_ANDROID_VERSION),)
 	DHDCFLAGS += -DANDROID_VERSION=$(CONFIG_BCMDHD_ANDROID_VERSION)
 	DHDCFLAGS += -DDHD_NOTIFY_MAC_CHANGED
-#	DHDCFLAGS += -DANDROID_BKPORT
+	DHDCFLAGS += -DANDROID_BKPORT
 ifneq ($(CONFIG_CFG80211),)
+	DHDCFLAGS += -DPNO_SUPPORT
 	DHDCFLAGS += -DGSCAN_SUPPORT -DRTT_SUPPORT -DLINKSTAT_SUPPORT
 	DHDCFLAGS += -DCUSTOM_COUNTRY_CODE -DDHD_GET_VALID_CHANNELS
 	DHDCFLAGS += -DDEBUGABILITY -DDBG_PKT_MON
-#	DHDCFLAGS += -DDHD_LOG_DUMP
-	DHDCFLAGS += -DDHD_FW_COREDUMP
+	DHDCFLAGS += -DDHD_LOG_DUMP -DDHD_FW_COREDUMP
 	DHDCFLAGS += -DWL_P2P_RAND
 	DHDCFLAGS += -DAPF -DNDO_CONFIG_SUPPORT -DRSSI_MONITOR_SUPPORT
-	DHDCFLAGS += -DDHD_WAKE_STATUS -DWL_LATENCY_MODE
+	DHDCFLAGS += -DDHD_WAKE_STATUS
+	DHDCFLAGS += -DWL_SOFTAP_ACS
 	DHDOFILES += dhd_rtt.o
+	DHDOFILES += dhd_log_dump.o
 endif
 else
 	DHDCFLAGS += -DANDROID_VERSION=0
@@ -232,6 +272,7 @@ ifeq ($(CONFIG_BCMDHD_DEBUG),y)
 	DHDCFLAGS += -DPKT_STATICS
 	DHDCFLAGS += -DKSO_DEBUG
 #	DHDCFLAGS += -DDHD_PKTDUMP_TOFW
+#	DHDCFLAGS += -DDHD_DUMP_FILE_WRITE_FROM_KERNEL
 endif
 
 # For Debug2
@@ -243,7 +284,11 @@ ifneq ($(CONFIG_BCMDHD_PCIE),)
 	DHDCFLAGS += -DEWP_EDL
 	DHDCFLAGS += -DDNGL_EVENT_SUPPORT
 	DHDCFLAGS += -DDHD_SSSR_DUMP
+	DHDCFLAGS += -DDHD_MEM_STATS
+	DHDCFLAGS += -DDHD_FLOW_RING_STATUS_TRACE
+	DHDCFLAGS += -DDNGL_AXI_ERROR_LOGGING
 endif
+	DHDOFILES += dhd_log_dump.o
 endif
 
 # MESH support for kernel 3.10 later
@@ -297,7 +342,7 @@ endif
 # For TPUT_IMPROVE
 ifeq ($(CONFIG_BCMDHD_TPUT),y)
 	DHDCFLAGS += -DDHD_TPUT_PATCH
-	DHDCFLAGS += -DTCPACK_INFO_MAXNUM=10 -DTCPDATA_INFO_MAXNUM=10
+	DHDCFLAGS += -DTCPACK_INFO_MAXNUM=40 -DTCPDATA_INFO_MAXNUM=40
 ifneq ($(CONFIG_BCMDHD_SDIO),)
 	DHDCFLAGS += -DDYNAMIC_MAX_HDR_READ
 	DHDCFLAGS :=$(filter-out -DSDTEST,$(DHDCFLAGS))
@@ -332,7 +377,7 @@ endif
 
 # For NAN
 ifneq ($(CONFIG_BCMDHD_NAN),)
-	DHDCFLAGS += -DWL_NAN -DWL_NAN_DISC_CACHE
+	DHDCFLAGS += -DWL_NAN -DWL_NAN_DISC_CACHE -DWL_NANP2P -DWL_NAN_ENABLE_MERGE
 	DHDOFILES += wl_cfgnan.o bcmbloom.o
 endif
 
@@ -354,6 +399,7 @@ ifeq ($(CONFIG_AP6XXX),y)
 endif
 ifeq ($(CONFIG_AP6XXX),m)
 	DHDCFLAGS += -DBCMDHD_MODULAR
+	DHDCFLAGS += -DBOARD_MODULAR_INIT
 endif
 
 ifeq ($(CONFIG_MACH_PLATFORM),y)
@@ -382,9 +428,9 @@ ifeq ($(CONFIG_BCMDHD_REQUEST_FW),y)
 else
 	DHDCFLAGS += -DDHD_SUPPORT_VFS_CALL
 ifeq ($(CONFIG_BCMDHD_FW_PATH),)
-	DHDCFLAGS += -DCONFIG_BCMDHD_FW_PATH="\"/system/etc/firmware/fw_bcmdhd.bin\""
-	DHDCFLAGS += -DCONFIG_BCMDHD_NVRAM_PATH="\"/system/etc/firmware/nvram.txt\""
-	DHDCFLAGS += -DCONFIG_BCMDHD_CLM_PATH="\"/system/etc/firmware/clm_bcmdhd.blob\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_FW_PATH="\"/vendor/etc/firmware/fw_bcmdhd.bin\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_NVRAM_PATH="\"/vendor/etc/firmware/nvram.txt\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_CLM_PATH="\"/vendor/etc/firmware/clm_bcmdhd.blob\""
 endif
 endif
 
@@ -413,6 +459,7 @@ BCMDHD_ROOT = $(src)
 EXTRA_CFLAGS = $(DHDCFLAGS)
 EXTRA_CFLAGS += -DDHD_COMPILED=\"$(BCMDHD_ROOT)\"
 EXTRA_CFLAGS += -I$(BCMDHD_ROOT)/include/ -I$(BCMDHD_ROOT)/
+EXTRA_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 ifeq ($(CONFIG_AP6XXX),m)
 EXTRA_LDFLAGS += --strip-debug
 endif
@@ -436,5 +483,6 @@ bcmdhd_usb:
 	$(MAKE) -C $(LINUXDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules CONFIG_BCMDHD=m CONFIG_BCMDHD_USB=y
 
 clean:
-	rm -rf *.o *.ko *.mod.c *~ .*.cmd *.o.cmd .*.o.cmd *.mod \
-	Module.symvers modules.order .tmp_versions modules.builtin
+	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) clean
+	$(RM) Module.markers
+	$(RM) modules.order

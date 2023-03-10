@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <net/netlink.h>
@@ -2143,7 +2143,7 @@ wl_ext_recv_probresp(struct net_device *dev, char *data, char *command,
 
 	/* enable:
 	    1. dhd_priv wl pkt_filter_add 150 0 0 0 0xFF 0x50
-	    2. dhd_priv wl pkt_filter_enable 150 1 
+	    2. dhd_priv wl pkt_filter_enable 150 1
 	    3. dhd_priv wl mpc 0
 	    4. dhd_priv wl 108 1
 	    disable:
@@ -2827,7 +2827,7 @@ wl_ext_conf_iovar(struct net_device *dev, char *command, int total_len)
 		goto exit;
 
 	strncpy(name, pch, sizeof(name));
-	
+
 	data = bcmstrtok(&pick_tmp, "", 0); // pick data
 
 	if (!strcmp(name, "pm")) {
@@ -2872,11 +2872,12 @@ wl_android_ext_priv_cmd(struct net_device *net, char *command,
 		*bytes_written = wl_ext_btc_war(net, command, total_len);
 	}
 #endif /* BTC_WAR */
+#ifdef WL_CFG80211
 	else if (strnicmp(command, CMD_SET_SUSPEND_BCN_LI_DTIM, strlen(CMD_SET_SUSPEND_BCN_LI_DTIM)) == 0) {
-		int bcn_li_dtim;
-		bcn_li_dtim = (int)simple_strtol((command + strlen(CMD_SET_SUSPEND_BCN_LI_DTIM) + 1), NULL, 10);
-		*bytes_written = net_os_set_suspend_bcn_li_dtim(net, bcn_li_dtim);
+		struct bcm_cfg80211 *cfg = wl_get_cfg(net);
+		cfg->suspend_bcn_li_dtim = (int)simple_strtol((command + strlen(CMD_SET_SUSPEND_BCN_LI_DTIM) + 1), NULL, 10);
 	}
+#endif /* WL_CFG80211 */
 #ifdef WL_EXT_IAPSTA
 	else if (strnicmp(command, CMD_IAPSTA_INIT, strlen(CMD_IAPSTA_INIT)) == 0 ||
 			strnicmp(command, CMD_ISAM_INIT, strlen(CMD_ISAM_INIT)) == 0) {
