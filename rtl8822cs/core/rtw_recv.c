@@ -4842,6 +4842,7 @@ thread_return rtw_recv_thread(thread_context context)
 	_adapter *adapter = (_adapter *)context;
 	struct recv_priv *recvpriv = &adapter->recvpriv;
 	s32 err = _SUCCESS;
+	struct cpumask cpumask;
 #ifdef RTW_RECV_THREAD_HIGH_PRIORITY
 #ifdef PLATFORM_LINUX
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
@@ -4856,6 +4857,11 @@ thread_return rtw_recv_thread(thread_context context)
 	thread_enter("RTW_RECV_THREAD");
 
 	RTW_INFO(FUNC_ADPT_FMT" enter\n", FUNC_ADPT_ARG(adapter));
+
+	cpumask_clear(&cpumask);
+	cpumask_set_cpu(2, &cpumask);
+	cpumask_set_cpu(3, &cpumask);
+	sched_setaffinity(0, &cpumask);
 
 	do {
 		err = _rtw_down_sema(&recvpriv->recv_sema);
