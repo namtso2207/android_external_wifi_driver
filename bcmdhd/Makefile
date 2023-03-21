@@ -35,6 +35,7 @@ CONFIG_MACH_PLATFORM := y
 DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
 	-Wno-implicit-fallthrough -Wno-declaration-after-statement            \
 	-Wno-fortify-source -Wno-unused-but-set-variable                      \
+	-Wno-vla -Wno-vla-extension					      \
 	-Dlinux -DLINUX -DBCMDRIVER                                           \
 	-DBCMDONGLEHOST -DBCMDMA32 -DBCMFILEIMAGE                             \
 	-DDHDTHREAD -DDHD_DEBUG -DSHOW_EVENTS -DGET_OTP_MAC_ENABLE            \
@@ -47,7 +48,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
 	-DUSE_NEW_RSPEC_DEFS                                                  \
 	-DWL_EXT_IAPSTA -DWL_ESCAN -DCCODE_LIST -DSUSPEND_EVENT               \
 	-DKEY_INSTALL_CHECK                                                   \
-	-DENABLE_INSMOD_NO_FW_LOAD
+	-DENABLE_INSMOD_NO_FW_LOAD -DWL_SCHED_SCAN
 
 DHDOFILES = aiutils.o siutils.o sbutils.o                                 \
 	bcmutils.o bcmwifi_channels.o bcmxtlv.o bcm_app_utils.o bcmstdlib_s.o \
@@ -212,6 +213,7 @@ ifneq ($(CONFIG_CFG80211),)
 	DHDCFLAGS += -DDEBUGABILITY -DDBG_PKT_MON
 #	DHDCFLAGS += -DDHD_LOG_DUMP
 	DHDCFLAGS += -DDHD_FW_COREDUMP
+	DHDCFLAGS += -DWL_P2P_RAND
 	DHDCFLAGS += -DAPF -DNDO_CONFIG_SUPPORT -DRSSI_MONITOR_SUPPORT
 	DHDCFLAGS += -DDHD_WAKE_STATUS -DWL_LATENCY_MODE
 	DHDOFILES += dhd_rtt.o
