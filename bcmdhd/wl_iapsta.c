@@ -772,7 +772,7 @@ wl_ext_get_chan(struct net_device *dev, struct wl_chan_info *chan_info)
 {
 	uint16 chan = 0, ctl_chan;
 	u32 chanspec = 0;
-	
+
 	chanspec = wl_ext_get_chanspec(dev, chan_info);
 	if (chanspec) {
 		ctl_chan = wf_chspec_ctlchan(chanspec);
@@ -2519,8 +2519,8 @@ wl_ext_iapsta_update_channel(struct net_device *dev, u32 chanspec)
 		if (cur_if->ifmode == ISTA_MODE) {
 			if (conf->war & SET_CHAN_INCONN && chan_info->chan) {
 				chanspec_t fw_chspec;
-			    IAPSTA_INFO(dev->name, "set channel %d\n", chan_info->chan);
-			    wl_ext_set_chanspec(cur_if->dev, chan_info, &fw_chspec);
+				IAPSTA_INFO(dev->name, "set channel %d\n", chan_info->chan);
+				wl_ext_set_chanspec(cur_if->dev, chan_info, &fw_chspec);
 			}
 			wl_set_isam_status(cur_if, STA_CONNECTING);
 		}
@@ -4275,7 +4275,7 @@ wl_ext_update_extsae_4way(struct net_device *dev,
 				else
 					conn_state = CONN_STATE_AUTH_SAE_M1;
 			} else if (auth_seq == 2) {
-				if (tx)	
+				if (tx)
 					conn_state = CONN_STATE_AUTH_SAE_M4;
 				else
 					conn_state = CONN_STATE_AUTH_SAE_M3;
@@ -5269,6 +5269,10 @@ wl_ext_rxf0ovfl_reinit_handler(struct wl_if_info *cur_if, const wl_event_msg_t *
 	int ret = 0;
 	bool reinit = FALSE;
 
+	if (!(dhd->conf->war & FW_REINIT_RXF0OVFL)) {
+		return;
+	}
+
 	if ((cur_if->ifmode == ISTA_MODE) &&
 			(etype == WLC_E_LINK) && (flags & WLC_EVENT_MSG_LINK)) {
 		// Link up
@@ -5718,7 +5722,7 @@ wl_ext_iapsta_preinit(struct net_device *dev, struct wl_apsta_params *apsta_para
 
 	if (FW_SUPPORTED(dhd, rsdb)) {
 		if (apstamode == IDUALAP_MODE)
-			apsta_params->rsdb = -1;
+			apsta_params->rsdb = 1;
 		else if (apstamode == ISTAAPAP_MODE)
 			apsta_params->rsdb = 0;
 		if (apstamode == ISTAAPAP_MODE || apstamode == IDUALAP_MODE ||

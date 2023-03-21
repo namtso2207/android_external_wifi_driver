@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+
 #include <osl.h>
 #include <dhd_linux.h>
 #include <linux/gpio.h>
@@ -68,15 +68,7 @@ dhd_wlan_set_power(int on, wifi_adapter_info_t *adapter)
 #endif
 #endif
 #ifdef BUS_POWER_RESTORE
-#ifdef BCMSDIO
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-		if (adapter->sdio_func && adapter->sdio_func->card && adapter->sdio_func->card->host) {
-			mdelay(100);
-			printf("======== mmc_power_restore_host! ========\n");
-			mmc_power_restore_host(adapter->sdio_func->card->host);
-		}
-#endif
-#elif defined(BCMPCIE)
+#ifdef BCMPCIE
 		if (adapter->pci_dev) {
 			mdelay(100);
 			printf("======== pci_set_power_state PCI_D0! ========\n");
@@ -94,14 +86,7 @@ dhd_wlan_set_power(int on, wifi_adapter_info_t *adapter)
 		/* Lets customer power to get stable */
 	} else {
 #ifdef BUS_POWER_RESTORE
-#ifdef BCMSDIO
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-		if (adapter->sdio_func && adapter->sdio_func->card && adapter->sdio_func->card->host) {
-			printf("======== mmc_power_save_host! ========\n");
-			mmc_power_save_host(adapter->sdio_func->card->host);
-		}
-#endif
-#elif defined(BCMPCIE)
+#ifdef BCMPCIE
 		if (adapter->pci_dev) {
 			printf("======== pci_set_power_state PCI_D3hot! ========\n");
 			pci_save_state(adapter->pci_dev);
@@ -139,7 +124,6 @@ dhd_wlan_set_carddetect(int present)
 {
 	int err = 0;
 
-#if !defined(BUS_POWER_RESTORE)
 	if (present) {
 #if defined(BCMSDIO)
 		printf("======== Card detection to detect SDIO card! ========\n");
@@ -165,7 +149,6 @@ dhd_wlan_set_carddetect(int present)
 		printf("======== Card detection to remove PCIE card! ========\n");
 #endif
 	}
-#endif /* BUS_POWER_RESTORE */
 
 	return err;
 }

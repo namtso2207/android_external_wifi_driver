@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+
 #if defined(WL_ESCAN)
 #include <bcmendian.h>
 #include <linux/if_arp.h>

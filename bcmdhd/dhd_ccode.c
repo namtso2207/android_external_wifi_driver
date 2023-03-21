@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+
 #ifdef CCODE_LIST
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>

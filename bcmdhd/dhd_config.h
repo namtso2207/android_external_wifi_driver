@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 
 #ifndef _dhd_config_
 #define _dhd_config_
@@ -28,7 +27,7 @@
 //#define CONFIG_PATH_AUTO_SELECT
 #endif
 extern char firmware_path[MOD_PARAM_PATHLEN];
-#if defined(BCMSDIO) || defined(BCMPCIE)
+#if defined(BCMSDIO)
 extern uint dhd_rxbound;
 extern uint dhd_txbound;
 #endif
@@ -126,7 +125,8 @@ enum war_flags {
 	FW_REINIT_INCSA	= (1 << (1)),
 	FW_REINIT_EMPTY_SCAN	= (1 << (2)),
 	P2P_AP_MAC_CONFLICT	= (1 << (3)),
-	RESEND_EAPOL_PKT	= (1 << (4))
+	RESEND_EAPOL_PKT	= (1 << (4)),
+	FW_REINIT_RXF0OVFL	= (1 << (5))
 };
 
 enum in4way_flags {
@@ -402,6 +402,7 @@ void dhd_conf_get_otp(dhd_pub_t *dhd, bcmsdh_info_t *sdh, si_t *sih);
 void dhd_conf_set_hw_oob_intr(bcmsdh_info_t *sdh, struct si_pub *sih);
 #endif
 void dhd_conf_set_txglom_params(dhd_pub_t *dhd, bool enable);
+bool dhd_conf_legacy_otp_chip(dhd_pub_t *dhd);
 #endif
 #ifdef BCMPCIE
 int dhd_conf_get_otp(dhd_pub_t *dhd, si_t *sih);
