@@ -46,7 +46,7 @@ do { \
 //#define BCMDBUS
 #define CONFIG_BCMDHD_VTS { : = y}
 #define CONFIG_BCMDHD_DEBUG { : = y}
-#define DHD_USE_STATIC_MEMDUMP { : = y}
+//#define DHD_USE_STATIC_MEMDUMP { : = y}
 //#define BCMDHD_UNUSE_MEM
 #endif
 

@@ -55,7 +55,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
 	-Wno-uninitialized -Wno-implicit-function-declaration               \
 	-Wno-implicit-fallthrough -Wno-declaration-after-statement            \
 	-Wno-fortify-source -Wno-unused-but-set-variable                      \
-	-Wno-vla -Wno-vla-extension                                           \
+	-Wno-vla -Wno-vla-extension -Wno-pointer-bool-conversion              \
 	-Dlinux -DLINUX -DBCMDRIVER -DBCMUTILS_ERR_CODES                      \
 	-DBCMDONGLEHOST -DBCMDMA32 -DBCMFILEIMAGE                             \
 	-DDHDTHREAD -DDHD_DEBUG -DSHOW_EVENTS -DGET_OTP_MAC_ENABLE            \
