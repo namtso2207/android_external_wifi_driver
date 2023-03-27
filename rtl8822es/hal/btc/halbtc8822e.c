@@ -158,30 +158,30 @@ static const struct btc_tdma_para tdma_nsant_8822e[] = {
 static const struct btc_rf_para rf_para_tx_8822e[] = {
 				{0, 0, FALSE, 7},  /* for normal */
 				{0, 16, FALSE, 7}, /* for WL-CPT */
-				{16, 4, TRUE, 4},  /* 2 for RCU SDR */
-				{15, 5, TRUE, 4},
-				{7, 8, TRUE, 4},
-				{6, 10, TRUE, 4},
-				{16, 4, TRUE, 4}, /* 6 for RCU OFC */
-				{15, 5, TRUE, 4},
-				{7, 8, TRUE, 4},
-				{6, 10, TRUE, 4},
-				{16, 15, TRUE, 4}, /* 10 for A2DP SDR */
-				{15, 15, TRUE, 4},
-				{7, 15, TRUE, 4},
-				{6, 15, TRUE, 4},
-				{16, 4, TRUE, 4}, /* 14 for A2DP OFC */
-				{15, 5, TRUE, 4},
-				{7, 8, TRUE, 4},
-				{6, 10, TRUE, 4},
-				{16, 4, TRUE, 4}, /* 18 for A2DP+RCU SDR */
-				{15, 5, TRUE, 4},
-				{7, 8, TRUE, 4},
-				{6, 10, TRUE, 4},
-				{16, 4, TRUE, 4}, /* 22 for A2DP+RCU OFC */
-				{15, 5, TRUE, 4},
-				{7, 8, TRUE, 4},
-				{6, 10, TRUE, 4} };
+				{16, 4, TRUE, 7},  /* 2 for RCU SDR */
+				{15, 5, TRUE, 7},
+				{7, 8, TRUE, 5},
+				{6, 10, TRUE, 5},
+				{16, 4, TRUE, 5}, /* 6 for RCU OFC */
+				{15, 5, TRUE, 5},
+				{7, 8, TRUE, 5},
+				{6, 10, TRUE, 5},
+				{16, 15, TRUE, 5}, /* 10 for A2DP SDR */
+				{15, 15, TRUE, 5},
+				{7, 15, TRUE, 5},
+				{6, 15, TRUE, 5},
+				{16, 4, TRUE, 5}, /* 14 for A2DP OFC */
+				{15, 5, TRUE, 5},
+				{7, 8, TRUE, 5},
+				{6, 10, TRUE, 5},
+				{16, 4, TRUE, 5}, /* 18 for A2DP+RCU SDR */
+				{15, 5, TRUE, 5},
+				{7, 8, TRUE, 5},
+				{6, 10, TRUE, 5},
+				{16, 4, TRUE, 5}, /* 22 for A2DP+RCU OFC */
+				{15, 5, TRUE, 5},
+				{7, 8, TRUE, 5},
+				{6, 10, TRUE, 5} };
 
 static const struct btc_rf_para rf_para_rx_8822e[] = {
 				{0, 0, FALSE, 7},  /* for normal */
@@ -207,7 +207,7 @@ static const struct btc_rf_para rf_para_rx_8822e[] = {
 				{7, 8, TRUE, 5},
 				{6, 10, TRUE, 5},
 				{16, 4, TRUE, 5}, /* 22 for A2DP+RCU OFC */
-				{15, 5, TRUE, 5},
+				{10, 5, TRUE, 5},
 				{7, 8, TRUE, 5},
 				{6, 10, TRUE, 5} };
 
@@ -215,7 +215,7 @@ const struct btc_5g_afh_map afh_5g_8822e[] = { {0, 0, 0} };
 
 const struct btc_chip_para btc_chip_para_8822e = {
 	"8822e",				/*.chip_name */
-	20220722,				/*.para_ver_date */
+	20230317,				/*.para_ver_date */
 	0x04,					/*.para_ver */
 	0x03,					/* bt_desired_ver */
 	0x10002,				/* wl_desired_ver */
