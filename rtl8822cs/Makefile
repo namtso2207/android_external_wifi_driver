@@ -9,12 +9,17 @@ EXTRA_CFLAGS += -O1
 #EXTRA_CFLAGS += -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes
 
 EXTRA_CFLAGS += -Wno-unused-variable
+EXTRA_CFLAGS += -Wno-fortify-source
+EXTRA_CFLAGS += -Wno-enum-conversion
+EXTRA_CFLAGS += -Wno-sometimes-uninitialized
+EXTRA_CFLAGS += -Wno-uninitialized
+EXTRA_CFLAGS += -Wno-parentheses-equality
+EXTRA_CFLAGS += -Wno-tautological-pointer-compare
 #EXTRA_CFLAGS += -Wno-unused-value
 #EXTRA_CFLAGS += -Wno-unused-label
 #EXTRA_CFLAGS += -Wno-unused-parameter
 #EXTRA_CFLAGS += -Wno-unused-function
 #EXTRA_CFLAGS += -Wno-unused
-#EXTRA_CFLAGS += -Wno-uninitialized
 
 GCC_VER_49 := $(shell echo `$(CC) -dumpversion | cut -f1-2 -d.` \>= 4.9 | bc )
 ifeq ($(GCC_VER_49),1)
@@ -96,7 +101,7 @@ CONFIG_RTW_NBI = n
 CONFIG_SEC_AMSDU_MODE = non-spp
 ########################## Android ###########################
 # CONFIG_RTW_ANDROID - 0: no Android, 4/5/6/7/8/9/10/11 : Android version
-CONFIG_RTW_ANDROID = 9
+CONFIG_RTW_ANDROID = 13
 
 ifeq ($(shell test $(CONFIG_RTW_ANDROID) -gt 0; echo $$?), 0)
 EXTRA_CFLAGS += -DCONFIG_RTW_ANDROID=$(CONFIG_RTW_ANDROID)
