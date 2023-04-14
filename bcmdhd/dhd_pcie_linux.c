@@ -772,6 +772,10 @@ static int dhdpcie_pci_resume_early(struct device *dev)
 		return ret;
 	}
 
+	if (bus->dhd->busstate == DHD_BUS_DOWN) {
+		return ret;
+	}
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 9))
 	/* On fc30 (linux ver 5.0.9),
 	 *  PMEStat of PMCSR(cfg reg) is cleared before this callback by kernel.
