@@ -1703,7 +1703,7 @@ static int sdio_sw_reset(sdioh_info_t *sd)
 	struct mmc_card *card = sd->func[0]->card;
 	int err = 0;
 
-#if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+#if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 	/* MMC_SW_RESET */
 	printf("%s: call mmc_sw_reset\n", __FUNCTION__);
 	sdio_claim_host(sd->func[0]);
