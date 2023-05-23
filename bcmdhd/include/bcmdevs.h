@@ -626,6 +626,8 @@
 #define RDL_RAM_BASE_4360  0x60000000
 #define RDL_RAM_SIZE_4381	0x180000
 #define RDL_RAM_BASE_4381	0x740000
+#define RDL_RAM_SIZE_4382	0x200000
+#define RDL_RAM_BASE_4382	0x700000
 
 /* generic defs for nvram "muxenab" bits
 * Note: these differ for 4335a0. refer bcmchipc.h for specific mux options.

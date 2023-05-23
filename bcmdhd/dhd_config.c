@@ -162,16 +162,21 @@ const module_name_map_v2_t module_name_map_v2[] = {
 	{BCM4381_CHIP_ID,	1,	""},
 	{BCM43752_CHIP_ID,	4,	"ap6276s"},
 	{BCM43756_CHIP_ID,	4,	"ap6276s"},
+	{BCM43756_CHIP_ID,	6,	""},
+	{BCM4382_CHIP_ID,	3,	""},
 #endif
 #ifdef BCMPCIE
 	{BCM4381_CHIP_ID,	0,	""},
 	{BCM4381_CHIP_ID,	1,	""},
 	{BCM43752_CHIP_ID,	4,	""},
 	{BCM43756_CHIP_ID,	4,	""},
+	{BCM43756_CHIP_ID,	6,	""},
+	{BCM4382_CHIP_ID,	3,	""},
 #endif
 #ifdef BCMDBUS
 	{BCM4381_CHIP_ID,	0,	""},
 	{BCM4381_CHIP_ID,	1,	""},
+	{BCM4382_CHIP_ID,	3,	""},
 #endif
 };
 
@@ -186,6 +191,8 @@ const chip_name_map_v2_t chip_name_map_v2[] = {
 	{BCM4381_CHIP_ID,	1,	"syn4381a0"},
 	{BCM43752_CHIP_ID,	4,	"syn43756b0"},
 	{BCM43756_CHIP_ID,	4,	"syn43756b0"},
+	{BCM43756_CHIP_ID,	6,	"syn43756c0"},
+	{BCM4382_CHIP_ID,	3,	"syn4382a0"},
 };
 
 #ifdef UPDATE_MODULE_NAME
@@ -1760,12 +1767,19 @@ dhd_conf_map_country_list(dhd_pub_t *dhd, wl_country_t *cspec)
 	return bcmerror;
 }
 
-int
+static int
 dhd_conf_set_country(dhd_pub_t *dhd, wl_country_t *cspec)
 {
 	int bcmerror = -1;
+	struct net_device *net;
+	int bytes_written = 0;
+	char event_msg[32];
 
 	memset(&dhd->dhd_cspec, 0, sizeof(wl_country_t));
+
+	net = dhd_idx2net(dhd, 0);
+	snprintf(event_msg, sizeof(event_msg), "wl event_msg %d 0", WLC_E_COUNTRY_CODE_CHANGED);
+	wl_android_ext_priv_cmd(net, event_msg, 0, &bytes_written);
 
 	CONFIG_MSG("set country %s, revision %d\n", cspec->ccode, cspec->rev);
 	bcmerror = dhd_conf_set_bufiovar(dhd, 0, WLC_SET_VAR, "country", (char *)cspec,
@@ -1773,6 +1787,9 @@ dhd_conf_set_country(dhd_pub_t *dhd, wl_country_t *cspec)
 	dhd_conf_get_country(dhd, cspec);
 	CONFIG_MSG("Country code: %s (%s/%d)\n",
 		cspec->country_abbrev, cspec->ccode, cspec->rev);
+
+	snprintf(event_msg, sizeof(event_msg), "wl event_msg %d 1", WLC_E_COUNTRY_CODE_CHANGED);
+	wl_android_ext_priv_cmd(net, event_msg, 0, &bytes_written);
 
 	return bcmerror;
 }
@@ -2052,6 +2069,33 @@ dhd_conf_country(dhd_pub_t *dhd, char *cmd, char *buf)
 	return err;
 }
 
+int
+dhd_conf_autocountry(dhd_pub_t *dhd, char *cmd, char *buf)
+{
+	struct net_device *net;
+	int bytes_written = 0;
+	char event_msg[32];
+	int enable = 0;
+
+	if (buf) {
+		sscanf(buf, "%d", &enable);
+	}
+
+	net = dhd_idx2net(dhd, 0);
+	snprintf(event_msg, sizeof(event_msg), "wl event_msg %d 0", WLC_E_COUNTRY_CODE_CHANGED);
+	wl_android_ext_priv_cmd(net, event_msg, 0, &bytes_written);
+
+	CONFIG_MSG("autocountry %d\n", enable);
+	dhd_conf_set_intiovar(dhd, 0, WLC_SET_VAR, "autocountry", enable, 0, FALSE);
+
+	snprintf(event_msg, sizeof(event_msg), "wl event_msg %d 1", WLC_E_COUNTRY_CODE_CHANGED);
+	wl_android_ext_priv_cmd(net, event_msg, 0, &bytes_written);
+
+	dhd_conf_country(dhd, "country", dhd->conf->cspec.country_abbrev);
+
+	return 0;
+}
+
 typedef int (tpl_parse_t)(dhd_pub_t *dhd, char *name, char *buf);
 
 typedef struct iovar_tpl_t {
@@ -2068,6 +2112,7 @@ const iovar_tpl_t iovar_tpl_list[] = {
 	{WLC_SET_VAR,	"scanmac",		dhd_conf_scan_mac},
 #endif
 	{WLC_SET_VAR,	"country",		dhd_conf_country},
+	{WLC_SET_VAR,	"autocountry",	dhd_conf_autocountry},
 };
 
 static int iovar_tpl_parse(const iovar_tpl_t *tpl, int tpl_count,
@@ -4794,11 +4839,7 @@ dhd_conf_read_config(dhd_pub_t *dhd, char *conf_path)
 		goto err;
 	}
 
-#ifdef DHD_LINUX_STD_FW_API
-	memblock_len = len;
-#else
 	memblock_len = MAXSZ_CONFIG;
-#endif /* DHD_LINUX_STD_FW_API */
 
 	pick = MALLOC(dhd->osh, MAXSZ_BUF);
 	if (!pick) {
@@ -5046,7 +5087,7 @@ dhd_conf_set_intr_extn(dhd_pub_t *dhd)
 			chip == BCM4359_CHIP_ID ||
 			chip == BCM43751_CHIP_ID || chip == BCM43752_CHIP_ID ||
 			chip == BCM4375_CHIP_ID || chip == BCM43756_CHIP_ID ||
-			chip == BCM4381_CHIP_ID) {
+			chip == BCM4381_CHIP_ID || chip == BCM4382_CHIP_ID) {
 		CONFIG_TRACE("enable intr_extn\n");
 		dhd->conf->intr_extn = TRUE;
 	}
@@ -5063,7 +5104,8 @@ dhd_conf_set_txbf(dhd_pub_t *dhd)
 			chip == BCM4371_CHIP_ID || chip == BCM4359_CHIP_ID ||
 			chip == BCM43569_CHIP_ID ||
 			chip == BCM43751_CHIP_ID || chip == BCM43752_CHIP_ID ||
-			chip == BCM4375_CHIP_ID || chip == BCM43756_CHIP_ID) {
+			chip == BCM4375_CHIP_ID || chip == BCM43756_CHIP_ID ||
+			chip == BCM4382_CHIP_ID) {
 		CONFIG_TRACE("enable txbf\n");
 		dhd_conf_set_intiovar(dhd, 0, WLC_SET_VAR, "txbf", 1, 0, FALSE);
 	}
@@ -5085,7 +5127,7 @@ dhd_conf_tput_improve(dhd_pub_t *dhd)
 			chip == BCM43569_CHIP_ID || chip == BCM4359_CHIP_ID ||
 			chip == BCM43751_CHIP_ID || chip == BCM43752_CHIP_ID ||
 			chip == BCM4375_CHIP_ID || chip == BCM43756_CHIP_ID ||
-			chip == BCM4381_CHIP_ID) {
+			chip == BCM4381_CHIP_ID || chip == BCM4382_CHIP_ID) {
 		CONFIG_TRACE("enable tput parameters\n");
 #ifdef DHDTCPACK_SUPPRESS
 #ifdef BCMSDIO
@@ -5174,7 +5216,6 @@ dhd_conf_postinit_ioctls(dhd_pub_t *dhd)
 	dhd_conf_set_intiovar(dhd, 0, WLC_SET_SRL, "WLC_SET_SRL", conf->srl, 0, FALSE);
 	dhd_conf_set_intiovar(dhd, 0, WLC_SET_LRL, "WLC_SET_LRL", conf->lrl, 0, FALSE);
 	dhd_conf_set_bw_cap(dhd);
-	dhd_conf_set_roam(dhd, 0);
 
 #if defined(BCMPCIE)
 	dhd_conf_set_intiovar(dhd, 0, WLC_SET_VAR, "bus:deepsleep_disable",
@@ -5326,8 +5367,9 @@ dhd_conf_preinit(dhd_pub_t *dhd)
 		strcpy(conf->cspec.ccode, "CN");
 		conf->cspec.rev = 38;
 	}
-	else if (conf->chip == BCM43756_CHIP_ID || conf->chip == BCM4381_CHIP_ID ||
-			(conf->chip == BCM43752_CHIP_ID && conf->chiprev == 4)) {
+	else if ((conf->chip == BCM43752_CHIP_ID && conf->chiprev == 4) ||
+			conf->chip == BCM43756_CHIP_ID || conf->chip == BCM4381_CHIP_ID ||
+			conf->chip == BCM4382_CHIP_ID) {
 		strcpy(conf->cspec.country_abbrev, "US");
 		strcpy(conf->cspec.ccode, "US");
 		conf->cspec.rev = 0;
@@ -5482,7 +5524,7 @@ dhd_conf_preinit(dhd_pub_t *dhd)
 	conf->tput_monitor_ms = 0;
 #ifdef BCMSDIO
 	if (conf->chip == BCM43752_CHIP_ID || conf->chip == BCM43756_CHIP_ID ||
-			conf->chip == BCM4381_CHIP_ID)
+			conf->chip == BCM4381_CHIP_ID || conf->chip == BCM4382_CHIP_ID)
 		conf->doflow_tput_thresh = 200;
 	else
 		conf->doflow_tput_thresh = 9999;
@@ -5495,7 +5537,8 @@ dhd_conf_preinit(dhd_pub_t *dhd)
 	conf->scan_busy_thresh = 10;
 	conf->scan_busy_tmo = 120;
 	if (conf->chip == BCM43752_CHIP_ID || conf->chip == BCM4375_CHIP_ID ||
-			conf->chip == BCM43756_CHIP_ID || conf->chip == BCM4381_CHIP_ID)
+			conf->chip == BCM43756_CHIP_ID || conf->chip == BCM4381_CHIP_ID ||
+			conf->chip == BCM4382_CHIP_ID)
 		conf->scan_tput_thresh = 100;
 	else
 		conf->scan_tput_thresh = 9999;
@@ -5528,7 +5571,7 @@ dhd_conf_preinit(dhd_pub_t *dhd)
 #ifdef DHD_TPUT_PATCH
 	if (conf->chip == BCM43751_CHIP_ID || conf->chip == BCM43752_CHIP_ID ||
 			conf->chip == BCM4375_CHIP_ID || conf->chip == BCM43756_CHIP_ID ||
-			conf->chip == BCM4381_CHIP_ID) {
+			conf->chip == BCM4381_CHIP_ID || conf->chip == BCM4382_CHIP_ID) {
 		conf->tput_patch = TRUE;
 		dhd_conf_set_tput_patch(dhd);
 	}

@@ -652,7 +652,8 @@ wl_cfg80211_disc_if_mgmt(struct bcm_cfg80211 *cfg,
 				* as for AP and associated ifaces, both are same
 				*/
 			}
-			/* falls through */
+				/* fall through */
+				fallthrough;
 			case WL_IF_POLICY_DEFAULT: {
 				 if (sec_wl_if_type == WL_IF_TYPE_AP) {
 					WL_INFORM_MEM(("AP is active, cant support new iface\n"));
@@ -883,7 +884,7 @@ wl_cfg80211_handle_if_role_conflict(struct bcm_cfg80211 *cfg,
 #endif /* WL_IFACE_MGMT */
 
 s32
-wl_release_vif_macaddr(struct bcm_cfg80211 *cfg, u8 *mac_addr, u16 wl_iftype)
+wl_release_vif_macaddr(struct bcm_cfg80211 *cfg, const u8 *mac_addr, u16 wl_iftype)
 {
 	struct net_device *ndev =  bcmcfg_to_prmry_ndev(cfg);
 	u16 org_toggle_bytes;
@@ -912,7 +913,7 @@ wl_release_vif_macaddr(struct bcm_cfg80211 *cfg, u8 *mac_addr, u16 wl_iftype)
 
 	/* Fetch last two bytes of mac address */
 	org_toggle_bytes = ntoh16(*((u16 *)&ndev->dev_addr[4]));
-	cur_toggle_bytes = ntoh16(*((u16 *)&mac_addr[4]));
+	cur_toggle_bytes = ntoh16(*((const u16 *)&mac_addr[4]));
 
 	toggled_bit = (org_toggle_bytes ^ cur_toggle_bytes);
 	WL_DBG(("org_toggle_bytes:%04X cur_toggle_bytes:%04X\n",
@@ -1595,6 +1596,33 @@ wl_get_nl80211_band(u32 wl_band)
 
 	return err;
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
+#ifdef SUPPORT_2G_VHT
+static struct ieee80211_channel *
+wl_cfg80211_get_ieee80211_chan(struct net_device *dev,
+	struct cfg80211_ap_settings *info)
+{
+	struct ieee80211_channel * ptr = NULL;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+	if (info) {
+		ptr = info->chandef.chan;
+	}
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+	if (info) {
+		ptr = info->channel;
+	}
+#else /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)) */
+	if ((dev) && (dev->ieee80211_ptr)) {
+		ptr = dev->ieee80211_ptr->channel;
+	}
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)) */
+
+	return ptr;
+}
+#endif /* SUPPORT_2G_VHT */
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0) */
 
 bool
 wl_is_sta_connected(struct bcm_cfg80211 *cfg)
@@ -3316,7 +3344,9 @@ wl_cfg80211_bcn_bringup_ap(
 	uint32 wme_apsd = 0;
 #endif /* SOFTAP_UAPSD_OFF */
 	s32 err = BCME_OK;
+#ifdef BCM4343X_WAR
 	dhd_pub_t *dhd = (dhd_pub_t *)(cfg->pub);
+#endif
 	char sec[64];
 	s32 is_rsdb_supported = BCME_ERROR;
 	u8 buf[WLC_IOCTL_SMLEN] = {0};
@@ -3420,7 +3450,7 @@ wl_cfg80211_bcn_bringup_ap(
 #endif /* DISABLE_11H_SOFTAP */
 
 #ifdef WL_DISABLE_HE_SOFTAP
-		err = wl_cfg80211_set_he_mode(dev, cfg, bssidx, WL_HE_FEATURES_HE_AP, FALSE);
+		err = wl_cfg80211_change_he_features(dev, cfg, bssidx, WL_HE_FEATURES_HE_AP, FALSE);
 		if (err < 0) {
 			WL_ERR(("failed to set he features, error=%d\n", err));
 		}
@@ -3468,6 +3498,7 @@ wl_cfg80211_bcn_bringup_ap(
 			WL_ERR(("Could not get wsec %d\n", err));
 			goto exit;
 		}
+#ifdef BCM4343X_WAR
 		if (dhd->conf->chip == BCM43430_CHIP_ID && bssidx > 0 &&
 				(wsec & (TKIP_ENABLED|AES_ENABLED))) {
 			struct net_device *primary_ndev = bcmcfg_to_prmry_ndev(cfg);
@@ -3488,6 +3519,7 @@ wl_cfg80211_bcn_bringup_ap(
 				wldev_ioctl_set(primary_ndev, WLC_DISASSOC, &scbval, sizeof(scb_val_t));
 			}
 		}
+#endif
 		if ((wsec == WEP_ENABLED) && cfg->wep_key.len) {
 			WL_DBG(("Applying buffered WEP KEY \n"));
 			err = wldev_iovar_setbuf_bsscfg(dev, "wsec_key", &cfg->wep_key,
@@ -4357,12 +4389,12 @@ wl_cfg80211_stop_ap(
 			}
 		}
 
-#if defined(WL_DISABLE_HE_SOFTAP) || defined(WL_6G_BAND)
-		if (wl_cfg80211_set_he_mode(dev, cfg, bssidx, WL_HE_FEATURES_HE_AP,
+#ifdef WL_DISABLE_HE_SOFTAP
+		if (wl_cfg80211_change_he_features(dev, cfg, bssidx, WL_HE_FEATURES_HE_AP,
 			TRUE) != BCME_OK) {
 			WL_ERR(("failed to set he features\n"));
 		}
-#endif /* defined(WL_DISABLE_HE_SOFTAP) || defined(WL_6G_BAND) */
+#endif /* WL_DISABLE_HE_SOFTAP */
 
 		wl_cfg80211_clear_per_bss_ies(cfg, dev->ieee80211_ptr);
 #ifdef SUPPORT_AP_RADIO_PWRSAVE
@@ -5660,6 +5692,7 @@ wl_cfg80211_set_monitor_channel(struct wiphy *wiphy, struct cfg80211_chan_def *c
 }
 #endif /* WL_CFG80211_MONITOR */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 int wl_chspec_chandef(chanspec_t chanspec,
 	struct cfg80211_chan_def *chandef, struct wiphy *wiphy)
 {
@@ -5770,7 +5803,6 @@ int wl_chspec_chandef(chanspec_t chanspec,
 	return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 void
 wl_cfg80211_ch_switch_notify(struct net_device *dev, uint16 chanspec, struct wiphy *wiphy)
 {
@@ -6512,7 +6544,7 @@ wl_he_pack_uint_cb(void *ctx, uint16 id, uint16 len, uint8 *buf)
 	}
 }
 
-int wl_cfg80211_set_he_mode(struct net_device *dev, struct bcm_cfg80211 *cfg,
+int wl_cfg80211_change_he_features(struct net_device *dev, struct bcm_cfg80211 *cfg,
 		s32 bssidx, u32 he_flag, bool set)
 {
 	bcm_xtlv_t read_he_xtlv;
@@ -6557,6 +6589,35 @@ int wl_cfg80211_set_he_mode(struct net_device *dev, struct bcm_cfg80211 *cfg,
 		WL_ERR(("failed to set he features, error=%d\n", err));
 	}
 	WL_INFORM(("Set HE[%d] done\n", set));
+
+	return err;
+}
+
+int wl_cfg80211_set_he_features(struct net_device *dev, struct bcm_cfg80211 *cfg,
+		s32 bssidx, u32 interface_type, uint features)
+{
+	uint8 se_he_xtlv[32];
+	int se_he_xtlv_len = sizeof(se_he_xtlv);
+	he_xtlv_v32 v32;
+	s32 err = 0;
+
+	v32.id = WL_HE_CMD_FEATURES;
+	v32.len = sizeof(s32);
+	v32.val = features;
+
+	err = bcm_pack_xtlv_buf((void *)&v32, se_he_xtlv, sizeof(se_he_xtlv),
+			BCM_XTLV_OPTION_ALIGN32, wl_he_get_uint_cb, wl_he_pack_uint_cb,
+			&se_he_xtlv_len);
+	if (err != BCME_OK) {
+		WL_ERR(("failed to pack he settvl=%d\n", err));
+	}
+
+	err = wldev_iovar_setbuf_bsscfg(dev, "he", &se_he_xtlv, sizeof(se_he_xtlv),
+			cfg->ioctl_buf, WLC_IOCTL_SMLEN, bssidx, &cfg->ioctl_buf_sync);
+	if (err < 0) {
+		WL_ERR(("failed to set he features, error=%d\n", err));
+	}
+	WL_INFORM(("Set he features[%d] done\n", features));
 
 	return err;
 }

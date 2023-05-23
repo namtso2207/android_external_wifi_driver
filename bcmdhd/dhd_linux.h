@@ -600,4 +600,6 @@ int dhd_get_platform_naming_for_nvram_clmblob_file(download_type_t component, ch
 void dhd_set_platform_ext_name_for_chip_version(char* chip_version);
 #endif /* USE_CID_CHECK */
 #endif /* SUPPORT_MULTIPLE_NVRAM || SUPPORT_MULTIPLE_CLMBLOB */
+void dhd_netif_rx_ni(struct sk_buff * skb);
+
 #endif /* __DHD_LINUX_H__ */

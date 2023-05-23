@@ -260,7 +260,11 @@ static struct pci_driver dhdpcie_driver = {
 	id_table:	dhdpcie_pci_devid,
 	probe:		dhdpcie_pci_probe,
 	remove:		dhdpcie_pci_remove,
-	.driver.pm = &dhd_pcie_pm_ops,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 16, 0))
+	.driver = {.pm = &dhd_pcie_pm_ops, .coredump = NULL},
+#else
+	.driver = {.pm = &dhd_pcie_pm_ops, },
+#endif /* LINUX_VERSION_CODE >= 4.16.0 */
 	shutdown:	dhdpcie_pci_shutdown,
 };
 
@@ -771,7 +775,6 @@ static int dhdpcie_pci_resume_early(struct device *dev)
 	if (!bus) {
 		return ret;
 	}
-
 	if (bus->dhd->busstate == DHD_BUS_DOWN) {
 		return ret;
 	}
@@ -2333,11 +2336,12 @@ dhdpcie_irq_disabled(dhd_bus_t *bus)
 {
 	struct irq_desc *desc = NULL;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
-	desc = irq_data_to_desc(irq_get_irq_data(bus->dev->irq));
-#else
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0))
 	desc = irq_to_desc(bus->dev->irq);
+#else // (LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0))
+	desc = irq_data_to_desc(irq_get_irq_data(bus->dev->irq));
 #endif // (LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0))
+
 	/* depth will be zero, if enabled */
 	return desc->depth;
 }
@@ -2365,7 +2369,9 @@ dhdpcie_start_host_dev(dhd_bus_t *bus)
 		bus->dev, NULL, 0);
 #endif /* CONFIG_ARCH_MSM */
 #ifdef CONFIG_ARCH_TEGRA
+#ifndef CONFIG_ARCH_TEGRA_210_SOC
 	ret = tegra_pcie_pm_resume();
+#endif /* CONFIG_ARCH_TEGRA_210_SOC */
 #endif /* CONFIG_ARCH_TEGRA */
 
 	if (ret) {
@@ -2402,7 +2408,9 @@ dhdpcie_stop_host_dev(dhd_bus_t *bus)
 		bus->dev, NULL, 0);
 #endif /* CONFIG_ARCH_MSM */
 #ifdef CONFIG_ARCH_TEGRA
+#ifndef CONFIG_ARCH_TEGRA_210_SOC
 	ret = tegra_pcie_pm_suspend();
+#endif /* CONFIG_ARCH_TEGRA_210_SOC */
 #endif /* CONFIG_ARCH_TEGRA */
 	if (ret) {
 		DHD_ERROR(("Failed to stop PCIe link\n"));
