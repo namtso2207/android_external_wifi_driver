@@ -16,7 +16,7 @@
 #include <linux/module.h>
 #include "aic_bsp_export.h"
 
-#define RWNX_80211_CMD_TIMEOUT_MS    2000//500//300
+#define RWNX_80211_CMD_TIMEOUT_MS    3000//500//300
 
 #define RWNX_CMD_FLAG_NONBLOCK      BIT(0)
 #define RWNX_CMD_FLAG_REQ_CFM       BIT(1)
@@ -396,6 +396,7 @@ enum aicbt_btmode_type {
 	AICBT_BTMODE_BT_ONLY,             // bt only mode without switch
 	AICBT_BTMODE_BT_ONLY_TEST,        // bt only test mode
 	AICBT_BTMODE_BT_WIFI_COMBO_TEST,  // wifi/bt combo test mode
+	AICBT_BTMODE_BT_ONLY_COANT,       // bt only mode with no external switch
 	AICBT_MODE_NULL = 0xFF,           // invalid value
 };
 

@@ -990,7 +990,7 @@ int aicbt_patch_table_load(struct aic_sdio_dev *sdiodev, struct aicbt_patch_tabl
     }
 	if(sdiodev->chipid == PRODUCT_ID_AIC8801 || sdiodev->chipid == PRODUCT_ID_AIC8800D80){
         if (sdiodev->chipid == PRODUCT_ID_AIC8800D80) {
-            aicbt_info.btmode = 5;
+            aicbt_info.btmode = AICBT_BTMODE_BT_ONLY_COANT;
         }
 		for (p = head; p != NULL; p = p->next) {
 			data = p->data;
@@ -1461,7 +1461,7 @@ int aicbsp_driver_fw_init(struct aic_sdio_dev *sdiodev)
 
 		if (aicbsp_info.chip_rev == CHIP_REV_U01)
             aicbsp_firmware_list = fw_8800d80_u01;
-        if (aicbsp_info.chip_rev == CHIP_REV_U02)
+        if (aicbsp_info.chip_rev == CHIP_REV_U02 || aicbsp_info.chip_rev == CHIP_REV_U03)
             aicbsp_firmware_list = fw_8800d80_u02;
         if (aicbsp_system_config_8800d80(sdiodev))
             return -1;

@@ -843,7 +843,20 @@ const struct wiphy_vendor_command aicwf_vendor_cmd[] = {
 		.policy = aicwf_cfg80211_subcmd_set_mac_policy,
 		.maxattr = WIFI_VENDOR_ATTR_DRIVER_MAX,
 #endif
-    },
+    	},
+	{
+        {
+         .vendor_id = BRCM_OUI,
+         .subcmd = VENDOR_NL80211_SUBCMD_SET_MAC
+        },
+        .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
+        .doit = aicwf_vendor_sub_cmd_set_mac,
+        .dumpit = aicwf_dump_interface,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+        .policy = aicwf_cfg80211_subcmd_set_mac_policy,
+        .maxattr = WIFI_VENDOR_ATTR_DRIVER_MAX,
+#endif
+    	},
 };
 #endif
 

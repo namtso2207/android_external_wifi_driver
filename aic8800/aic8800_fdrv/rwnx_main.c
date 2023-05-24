@@ -921,7 +921,7 @@ static int rwnx_open(struct net_device *dev)
 
 #ifdef CONFIG_GPIO_WAKEUP
 //close lp mode
-	rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, 0);
+//	rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, 0);
 #endif//CONFIG_GPIO_WAKEUP
 
 	// Check if it is the first opened VIF
@@ -1185,7 +1185,7 @@ static int rwnx_close(struct net_device *dev)
 
 #ifdef CONFIG_GPIO_WAKEUP
 	//open lp mode
-	rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, 1);
+//	rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, 1);
 #if defined(CONFIG_SDIO_PWRCTRL)
 		aicwf_sdio_pwr_stctl(g_rwnx_plat->sdiodev, SDIO_SLEEP_ST);
 #endif
@@ -1228,8 +1228,12 @@ enum {
 	RDWR_EFUSE_PWROFST,
 	RDWR_EFUSE_DRVIBIT,
 	SET_PAPR,
-    SET_COB_CAL,
-    GET_COB_CAL_RES,
+	SET_CAL_XTAL,
+	GET_CAL_XTAL_RES,
+	SET_COB_CAL,
+	GET_COB_CAL_RES,
+	RDWR_EFUSE_USRDATA,
+	SET_NOTCH,
 	SETSUSPENDMODE,
 
 };
@@ -1258,7 +1262,17 @@ typedef struct
 {
     u8_l dutid;
     u8_l chip_num;
+    u8_l dis_xtal;
 }cmd_rf_setcobcal_t;
+typedef struct
+ {
+     u16_l dut_rcv_golden_num;
+     u8_l golden_rcv_dut_num;
+     s8_l rssi_static;
+     s8_l snr_static;
+     s8_l dut_rssi_static;
+     u16_l reserved;
+ }cob_result_ptr_t;
 #endif
 
 #define CMD_MAXARGS 10
@@ -1402,8 +1416,11 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
 	u8_l xtal_cap;
 	u8_l xtal_cap_fine;
 	u8_l vendor_info;
+	cob_result_ptr_t *cob_result_ptr;
 
 #endif
+
+	u8_l state;
 
 #ifdef CONFIG_GPIO_WAKEUP
 	u8_l setsusp_mode;
@@ -1978,6 +1995,18 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
 				bytes_written = -EINVAL;
 				break;
 			}
+		} else if (strcasecmp(argv[0], "SET_NOTCH") == 0) {
+			if (argc > 1) {
+				u8_l func = (u8_l) command_strtoul(argv[1], NULL, 10);
+				AICWFDBG(LOGINFO, "set notch %d\r\n", func);
+	#ifdef AICWF_SDIO_SUPPORT
+				rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, SET_NOTCH, sizeof(func), &func, NULL);
+	#endif
+			} else {
+				AICWFDBG(LOGERROR, "wrong args\n");
+				bytes_written = -EINVAL;
+				break;
+			}
 		} else if (strcasecmp(argv[0], "SET_COB_CAL") == 0) {
 				   AICWFDBG(LOGINFO, "set_cob_cal\n");
 				   if (argc < 3) {
@@ -1987,6 +2016,7 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
 				   }
 				   setcob_cal.dutid = command_strtoul(argv[1], NULL, 10);
 				   setcob_cal.chip_num = command_strtoul(argv[2], NULL, 10);
+				   setcob_cal.dis_xtal = command_strtoul(argv[3], NULL, 10);
 				   rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, SET_COB_CAL, sizeof(cmd_rf_setcobcal_t), (u8_l *)&setcob_cal, NULL);
 		} else if (strcasecmp(argv[0], "GET_COB_CAL_RES")==0) {
 			AICWFDBG(LOGINFO, "get cob cal res\n");
@@ -1994,6 +2024,32 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
 			memcpy(command, &cfm.rftest_result[0], 4);
 			bytes_written = 4;
 			AICWFDBG(LOGINFO, "cap=0x%x, cap_fine=0x%x\n", cfm.rftest_result[0] & 0x0000ffff, (cfm.rftest_result[0] >> 16) & 0x0000ffff);
+		} else if (strcasecmp(argv[0], "DO_COB_TEST") == 0) {
+             AICWFDBG(LOGINFO, "do_cob_test\n");
+             setcob_cal.dutid = 1;
+             setcob_cal.chip_num = 1;
+             setcob_cal.dis_xtal = 0;
+             if (argc > 1 ) {
+                 setcob_cal.dis_xtal = command_strtoul(argv[1], NULL, 10);
+             }
+             rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, SET_COB_CAL, sizeof(cmd_rf_setcobcal_t), (u8_l *)&setcob_cal, NULL);
+             msleep(2000);
+             rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, GET_COB_CAL_RES, 0, NULL, &cfm);
+             state = (cfm.rftest_result[0] >> 16) & 0x000000ff;
+             if (!state){
+                 AICWFDBG(LOGINFO, "cap= 0x%x, cap_fine= 0x%x, freq_ofst= %d Hz\n",
+                 cfm.rftest_result[0] & 0x000000ff, (cfm.rftest_result[0] >> 8) & 0x000000ff, cfm.rftest_result[1]);
+                 cob_result_ptr = (cob_result_ptr_t *) & (cfm.rftest_result[2]);
+                 AICWFDBG(LOGINFO, "golden_rcv_dut= %d , tx_rssi= %d dBm, snr = %d dB\ndut_rcv_godlden= %d , rx_rssi= %d dBm",
+                 cob_result_ptr->golden_rcv_dut_num, cob_result_ptr->rssi_static, cob_result_ptr->snr_static,
+                 cob_result_ptr->dut_rcv_golden_num, cob_result_ptr->dut_rssi_static);
+                 memcpy(command, &cfm.rftest_result, 16);
+                 bytes_written = 16;
+             } else {
+                 AICWFDBG(LOGERROR, "cob not idle\n");
+                 bytes_written = -EINVAL;
+                 break;
+             }
 		} else if (strcasecmp(argv[0], "SETSUSPENDMODE") == 0 && testmode == 0) {
 	#ifdef AICWF_SDIO_SUPPORT
 			#ifdef CONFIG_GPIO_WAKEUP
@@ -3523,6 +3579,95 @@ static int rwnx_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 	}
 
 }
+
+#ifdef CONFIG_SCHED_SCAN
+
+static int rwnx_cfg80211_sched_scan_stop(struct wiphy *wiphy,
+					   struct net_device *ndev, 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+					   u64 reqid)
+#else
+                        )
+#endif
+{
+
+	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+	//struct rwnx_vif *rwnx_vif = netdev_priv(dev);
+	AICWFDBG(LOGINFO, "%s enter \r\n", __func__);
+
+    if(rwnx_hw->scan_request){
+        return rwnx_send_scanu_cancel_req(rwnx_hw, NULL);
+    }else{
+        return 0;
+    }
+}
+
+
+static int rwnx_cfg80211_sched_scan_start(struct wiphy *wiphy,
+                             struct net_device *dev,
+                             struct cfg80211_sched_scan_request *request)
+
+{	
+    struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
+    struct cfg80211_scan_request *scan_request;
+
+    int ret = 0;
+    int index = 0;
+    
+    AICWFDBG(LOGINFO, "%s enter \r\n", __func__);
+
+    scan_request = (struct cfg80211_scan_request *)kmalloc(sizeof(struct cfg80211_scan_request), GFP_KERNEL);
+
+    scan_request->ssids = request->ssids;
+    scan_request->n_channels = request->n_channels;
+    scan_request->n_ssids = request->n_match_sets;
+    scan_request->no_cck = false;
+	scan_request->ie = request->ie;
+	scan_request->ie_len = request->ie_len;
+    scan_request->flags = request->flags;
+    
+    scan_request->wiphy = wiphy;
+    scan_request->scan_start = request->scan_start;
+    memcpy(scan_request->mac_addr, request->mac_addr, ETH_ALEN);
+    memcpy(scan_request->mac_addr_mask, request->mac_addr_mask, ETH_ALEN);
+    rwnx_hw->sched_scan_req = request;
+    scan_request->wdev = &rwnx_vif->wdev;
+    AICWFDBG(LOGDEBUG, "%s scan_request->n_channels:%d \r\n", __func__, scan_request->n_channels);
+    AICWFDBG(LOGDEBUG, "%s scan_request->n_ssids:%d \r\n", __func__, scan_request->n_ssids);
+    
+    for(index = 0; index < scan_request->n_ssids; index++){
+        memset(scan_request->ssids[index].ssid, 0, IEEE80211_MAX_SSID_LEN);
+        
+        memcpy(scan_request->ssids[index].ssid, 
+            request->match_sets[index].ssid.ssid, 
+            IEEE80211_MAX_SSID_LEN);
+        
+        scan_request->ssids[index].ssid_len = request->match_sets[index].ssid.ssid_len;
+        
+        AICWFDBG(LOGDEBUG, "%s request ssid:%s len:%d \r\n", __func__, 
+            scan_request->ssids[index].ssid, scan_request->ssids[index].ssid_len);
+    }
+    
+	for(index = 0;index < scan_request->n_channels; index++){
+		scan_request->channels[index] = request->channels[index];
+      
+        AICWFDBG(LOGDEBUG, "%s scan_request->channels[%d]:%d \r\n", __func__, index,
+            scan_request->channels[index]->center_freq);
+
+		if(scan_request->channels[index] == NULL){
+			AICWFDBG(LOGERROR, "%s ERROR!!! channels is NULL", __func__);
+			continue;
+		}
+	}
+    
+    rwnx_hw->is_sched_scan = true;
+    
+    ret = rwnx_cfg80211_scan(wiphy, scan_request);
+
+	return ret;
+}
+#endif //CONFIG_SCHED_SCAN
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0) || defined(CONFIG_WPA3_FOR_OLD_KERNEL)
 /**
@@ -5982,6 +6127,10 @@ static struct cfg80211_ops rwnx_cfg80211_ops = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0) || defined(CONFIG_WPA3_FOR_OLD_KERNEL)
 	.external_auth = rwnx_cfg80211_external_auth,
 #endif
+#ifdef CONFIG_SCHED_SCAN
+    .sched_scan_start = rwnx_cfg80211_sched_scan_start,
+    .sched_scan_stop = rwnx_cfg80211_sched_scan_stop,
+#endif
 };
 
 
@@ -6092,6 +6241,14 @@ int rwnx_ic_system_init(struct rwnx_hw *rwnx_hw){
 
 	chip_id = (u8)(rd_mem_addr_cfm.memdata >> 16);
 
+    if (rwnx_send_dbg_mem_read_req(rwnx_hw, 0x00000020, &rd_mem_addr_cfm)) {
+		AICWFDBG(LOGERROR, "[0x00000020] rd fail\n");
+        return -1;
+    }
+    chip_sub_id = (u8)(rd_mem_addr_cfm.memdata);
+
+	AICWFDBG(LOGINFO, "FDRV chip_id=%x, chip_sub_id=%x!!\n", chip_id, chip_sub_id);
+
 	if (rwnx_platform_on(rwnx_hw, NULL))
 			return -1;
 #if defined(CONFIG_START_FROM_BOOTROM)
@@ -6147,7 +6304,7 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	u8 dflt_mac[ETH_ALEN] = { 0x88, 0x00, 0x33, 0x77, 0x10, 0x99};
 	u8 addr_str[20];
 	//struct mm_set_rf_calib_cfm cfm;
-	//struct mm_get_fw_version_cfm fw_version;
+	struct mm_get_fw_version_cfm fw_version;
 	u8_l mac_addr_efuse[ETH_ALEN];
 	struct aicbsp_feature_t feature;
 	struct mm_set_stack_start_cfm set_start_cfm;
@@ -6185,6 +6342,10 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 #endif
 	rwnx_hw->mod_params = &rwnx_mod_params;
 	rwnx_hw->tcp_pacing_shift = 7;
+    
+#ifdef CONFIG_SCHED_SCAN
+    rwnx_hw->is_sched_scan = false;
+#endif//CONFIG_SCHED_SCAN
 
 	rwnx_init_aic(rwnx_hw);
 	/* set device pointer for wiphy */
@@ -6255,13 +6416,18 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	}
 
 #ifdef USE_5G
-	ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, CO_BIT(5), 0, &set_start_cfm);
 	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW){
-		set_start_cfm.is_5g_support = false;
+	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, 0, 0, &set_start_cfm);
+	} else {
+	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, CO_BIT(5), 0, &set_start_cfm);
 	}
 #else
-	ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, feature.hwinfo < 0, feature.hwinfo, 0, &set_start_cfm);
+	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80){
+	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, CO_BIT(5), 0, &set_start_cfm);
+	} else {
+	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, feature.hwinfo < 0, feature.hwinfo, 0, &set_start_cfm);
+	}
 #endif
 
 	if (ret)
@@ -6270,11 +6436,11 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	AICWFDBG(LOGINFO, "is 5g support = %d, vendor_info = 0x%02X\n", set_start_cfm.is_5g_support, set_start_cfm.vendor_info);
 	rwnx_hw->band_5g_support = set_start_cfm.is_5g_support;
 	rwnx_hw->vendor_info = (feature.hwinfo < 0) ? set_start_cfm.vendor_info : feature.hwinfo;
-#if 0
+
 	ret = rwnx_send_get_fw_version_req(rwnx_hw, &fw_version);
 	memcpy(wiphy->fw_version, fw_version.fw_version, fw_version.fw_version_len>32? 32 : fw_version.fw_version_len);
 	AICWFDBG(LOGINFO, "Firmware Version: %s\r\n", fw_version.fw_version);
-#endif
+
 	wiphy->bands[NL80211_BAND_2GHZ] = &rwnx_band_2GHz;
 	if (rwnx_hw->band_5g_support)
 		wiphy->bands[NL80211_BAND_5GHZ] = &rwnx_band_5GHz;
@@ -6349,6 +6515,13 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	wiphy->extended_capabilities = rwnx_hw->ext_capa;
 	wiphy->extended_capabilities_mask = rwnx_hw->ext_capa;
 	wiphy->extended_capabilities_len = ARRAY_SIZE(rwnx_hw->ext_capa);
+
+#ifdef CONFIG_SCHED_SCAN
+    wiphy->max_sched_scan_reqs = 1;
+    wiphy->max_sched_scan_ssids = SCAN_SSID_MAX;//16;
+    wiphy->max_match_sets = SCAN_SSID_MAX;//16;
+    wiphy->max_sched_scan_ie_len = 2048;
+#endif//CONFIG_SCHED_SCAN
 
 	tasklet_init(&rwnx_hw->task, rwnx_task, (unsigned long)rwnx_hw);
 

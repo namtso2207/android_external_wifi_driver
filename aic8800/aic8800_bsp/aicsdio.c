@@ -51,7 +51,7 @@ static bool aicbsp_load_fw_in_fdrv = false;
 #define FW_PATH_MAX 200
 
 #ifdef CONFIG_PLATFORM_UBUNTU
-static const char* aic_default_fw_path = "/lib/firmware/aic8800_sdio";
+static const char* aic_default_fw_path = "/vendor/etc/firmware";
 #else
 static const char* aic_default_fw_path = CONFIG_AIC_FW_PATH;
 #endif
@@ -335,7 +335,7 @@ static void aicbsp_sdio_remove(struct sdio_func *func)
 
 	func = aicbsp_sdiodev->func;
 	host = func->card->host;
-	//host->caps &= ~MMC_CAP_NONREMOVABLE;
+	host->caps &= ~MMC_CAP_NONREMOVABLE;
 	bus_if = dev_get_drvdata(&func->dev);
 	if (!bus_if) {
 		return;
@@ -1719,7 +1719,7 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 	struct mmc_host *host;
 	u8 byte_mode_disable = 0x1;//1: no byte mode
 	int ret = 0;
-    u8 val;
+    //u8 val;
 	struct aicbsp_feature_t feature;
 
 	aicbsp_get_feature(&feature, NULL);
@@ -1735,6 +1735,7 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
         sdio_release_host(sdiodev->func);
         return ret;
     }
+#if 0
     if (host->ios.timing == MMC_TIMING_UHS_DDR50) {
         val = 0x21;//0x1D;//0x5;
     } else {
@@ -1767,6 +1768,8 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 		sdio_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	}
 #endif
+#endif
+	sdio_dbg("##### Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	ret = sdio_set_block_size(sdiodev->func, SDIOWIFI_FUNC_BLOCKSIZE);
 	if (ret < 0) {
 		sdio_err("set blocksize fail %d\n", ret);
