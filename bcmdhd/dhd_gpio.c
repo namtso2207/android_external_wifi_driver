@@ -156,7 +156,7 @@ dhd_wlan_set_carddetect(int present)
 static int
 dhd_wlan_get_mac_addr(unsigned char *buf, int ifidx)
 {
-	int err = 0;
+	int err = -1;
 
 	if (ifidx == 1) {
 #ifdef EXAMPLE_GET_MAC
@@ -383,13 +383,13 @@ dhd_wlan_deinit_gpio(wifi_adapter_info_t *adapter)
 	if (gpio_wl_reg_on >= 0) {
 		printf("%s: gpio_free(WL_REG_ON %d)\n", __FUNCTION__, gpio_wl_reg_on);
 		gpio_free(gpio_wl_reg_on);
-		gpio_wl_reg_on = -1;
+		adapter->gpio_wl_reg_on = -1;
 	}
 #ifdef CUSTOMER_OOB
 	if (gpio_wl_host_wake >= 0) {
 		printf("%s: gpio_free(WL_HOST_WAKE %d)\n", __FUNCTION__, gpio_wl_host_wake);
 		gpio_free(gpio_wl_host_wake);
-		gpio_wl_host_wake = -1;
+		adapter->gpio_wl_host_wake = -1;
 	}
 #endif /* CUSTOMER_OOB */
 }

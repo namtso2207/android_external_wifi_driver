@@ -88,12 +88,6 @@ struct wl_ibss;
 /* Enable by default */
 #define WL_WTC
 
-#ifdef CONFIG_ARCH_MESON
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 43))
-#define CFG80211_BKPORT_MLO
-#endif /* KERNEL >= 5.15.43 */
-#endif /* CONFIG_ARCH_MESON */
-
 #if !defined(WL_CLIENT_SAE) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0))
 #define WL_CLIENT_SAE
 #endif
@@ -775,7 +769,7 @@ do {									\
 #else
 #define IFACE_MAX_CNT           5
 #endif /* WL_MLO */
-#define WL_SCAN_CONNECT_DWELL_TIME_MS		200
+#define WL_SCAN_CONNECT_DWELL_TIME_MS		100
 #define WL_SCAN_JOIN_PROBE_INTERVAL_MS		20
 #define WL_SCAN_JOIN_ACTIVE_DWELL_TIME_MS	320
 #define WL_BCAST_SCAN_JOIN_ACTIVE_DWELL_TIME_MS	80
@@ -803,8 +797,11 @@ do {									\
 #define WL_INVALID		-1
 
 #ifdef DHD_LOSSLESS_ROAMING
+#ifndef WL_ROAM_TIMEOUT_MS
 #define WL_ROAM_TIMEOUT_MS	1000 /* Roam timeout */
-#endif
+#endif /* WL_ROAM_TIMEOUT_MS */
+#endif /* DHD_LOSSLESS_ROAMING */
+
 /* Bring down SCB Timeout to 20secs from 60secs default */
 #ifndef WL_SCB_TIMEOUT
 #define WL_SCB_TIMEOUT	20
@@ -1001,7 +998,9 @@ typedef wifi_p2psd_gas_pub_act_frame_t wl_dpp_gas_af_t;
 #define DEFAULT_FULL_ROAM_PRD 0x78u
 #define DEFAULT_ASSOC_RETRY 0x3u
 #define DEFAULT_WNM_CONF 0x505u
+#ifndef DEFAULT_RECREATE_BI_TIMEOUT
 #define DEFAULT_RECREATE_BI_TIMEOUT 20u
+#endif
 
 struct preinit_iov;
 typedef int (*wl_iov_fn) (struct bcm_cfg80211 *cfg, struct net_device *dev, struct preinit_iov *v);
@@ -1882,7 +1881,7 @@ typedef enum {
 #define SAR_CONFIG_SCENARIO_COUNT	100
 typedef struct wl_sar_config_info {
 	int8 scenario;
-	int8 sar_tx_power_val;
+	uint8 sar_tx_power_val;
 	int8 airplane_mode;
 } wl_sar_config_info_t;
 #endif /* WL_SAR_TX_POWER && WL_SAR_TX_POWER_CONFIG */
@@ -3331,9 +3330,11 @@ extern s32 wl_cfg80211_pause_sdo(struct net_device *dev, struct bcm_cfg80211 *cf
 extern s32 wl_cfg80211_resume_sdo(struct net_device *dev, struct bcm_cfg80211 *cfg);
 
 #endif
+
+#define CHANINFO_LIST_BUF_SIZE	(1024 * 4)
+
 #ifdef WL_SUPPORT_AUTO_CHANNEL
 #define CHANSPEC_BUF_SIZE	2048
-#define CHANINFO_LIST_BUF_SIZE     (1024 * 4)
 #define CHAN_SEL_IOCTL_DELAY	300
 #define CHAN_SEL_RETRY_COUNT	15
 #define CHANNEL_IS_RADAR(channel)	(((channel & WL_CHAN_RADAR) || \
@@ -3413,10 +3414,11 @@ extern int wl_get_public_action(void *frame, u32 frame_len, u8 *ret_action);
 
 struct net_device *wl_cfg80211_get_remain_on_channel_ndev(struct bcm_cfg80211 *cfg);
 
-#ifdef WL_SUPPORT_ACS
-#define ACS_MSRMNT_DELAY 1000 /* dump_obss delay in ms */
 #define IOCTL_RETRY_COUNT 5
 #define CHAN_NOISE_DUMMY -80
+
+#ifdef WL_SUPPORT_ACS
+#define ACS_MSRMNT_DELAY 1000 /* dump_obss delay in ms */
 #define OBSS_TOKEN_IDX 15
 #define IBSS_TOKEN_IDX 15
 #define TX_TOKEN_IDX 14
@@ -3533,7 +3535,7 @@ int wl_set_rssi_logging(struct net_device *dev, void *param);
 int wl_get_rssi_per_ant(struct net_device *dev, char *ifname, char *peer_mac, void *param);
 #endif /* SUPPORT_RSSI_SUM_REPORT */
 struct wireless_dev * wl_cfg80211_add_if(struct bcm_cfg80211 *cfg, struct net_device *primary_ndev,
-	wl_iftype_t wl_iftype, const char *name, u8 *mac);
+	wl_iftype_t wl_iftype, const char *name, const u8 *mac);
 extern s32 wl_cfg80211_del_if(struct bcm_cfg80211 *cfg, struct net_device *primary_ndev,
 	struct wireless_dev *wdev, char *name);
 s32 _wl_cfg80211_del_if(struct bcm_cfg80211 *cfg, struct net_device *primary_ndev,
@@ -3777,6 +3779,10 @@ int wl_cfg80211_set_roam_params(struct net_device *dev, uint32 *data, uint16 dat
 
 extern void wl_cfg80211_wdev_lock(struct wireless_dev *wdev);
 extern void wl_cfg80211_wdev_unlock(struct wireless_dev *wdev);
+
+extern u8 *wl_get_up_table_netinfo(struct bcm_cfg80211 *cfg, struct net_device *ndev);
+extern void wl_store_up_table_netinfo(struct bcm_cfg80211 *cfg,
+	struct net_device *ndev, u8 *uptable);
 
 /* Added wl_reassoc_params_cvt_v1 due to mis-sync between DHD and FW
  * Because Dongle use wl_reassoc_params_v1_t for WLC_REASSOC

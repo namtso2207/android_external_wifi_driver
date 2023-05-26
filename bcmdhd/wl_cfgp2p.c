@@ -2578,7 +2578,7 @@ wl_cfgp2p_register_ndev(struct bcm_cfg80211 *cfg)
 #endif
 
 	/* Register with a dummy MAC addr */
-	dev_addr_set(net, temp_addr);
+	DEV_ADDR_SET(net, temp_addr);
 
 #ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
 	wdev->wiphy = cfg->wdev->wiphy;
@@ -2797,8 +2797,9 @@ wl_cfgp2p_add_p2p_disc_if(struct bcm_cfg80211 *cfg)
 	memcpy(wdev->address, wl_to_p2p_bss_macaddr(cfg, P2PAPI_BSSCFG_DEVICE), ETHER_ADDR_LEN);
 
 #if defined(WL_NEWCFG_PRIVCMD_SUPPORT)
-	if (cfg->p2p_net)
-		dev_addr_set(cfg->p2p_net, wl_to_p2p_bss_macaddr(cfg, P2PAPI_BSSCFG_DEVICE));
+	if (cfg->p2p_net) {
+		DEV_ADDR_SET(cfg->p2p_net, wl_to_p2p_bss_macaddr(cfg, P2PAPI_BSSCFG_DEVICE));
+	}
 #endif /* WL_NEWCFG_PRIVCMD_SUPPORT */
 
 	/* store p2p wdev ptr for further reference. */

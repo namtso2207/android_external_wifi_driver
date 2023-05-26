@@ -4549,6 +4549,16 @@ dbus_get_fwfile(int devid, int chiprev, uint8 **fw, int *fwlen,
 					break;
 			}
 			break;
+		case BCM4382_CHIP_ID:
+			device_id = "4382";
+			switch (chiprev) {
+				case 1:
+					chip_rev = "a0";
+					break;
+				default:
+					break;
+			}
+			break;
 
 		default:
 			DBUSERR(("unsupported device %x\n", devid));
@@ -4584,6 +4594,16 @@ dbus_get_nvfile(int devid, int chiprev, uint8 **fw, int *fwlen,
 	switch (devid) {
 		case BCM4381_CHIP_ID:
 			device_id = "4381";
+			switch (chiprev) {
+				case 1:
+					chip_rev = "a0";
+					break;
+				default:
+					break;
+			}
+			break;
+		case BCM4382_CHIP_ID:
+			device_id = "4382";
 			switch (chiprev) {
 				case 1:
 					chip_rev = "a0";

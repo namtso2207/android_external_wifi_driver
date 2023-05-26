@@ -1739,6 +1739,12 @@ dhd_dump_memstats(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 
 	malloc_mem = MALLOCED(dhdp->osh);
 
+	UNUSED_PARAMETER(malloc_mem);
+	UNUSED_PARAMETER(total_txpath_mem);
+	UNUSED_PARAMETER(txpath_bkpq_len);
+	UNUSED_PARAMETER(txpath_bkpq_mem);
+
+#ifdef BCMPCIE
 	txpath_bkpq_len = dhd_active_tx_flowring_bkpq_len(dhdp);
 	/*
 	 * Instead of traversing the entire queue to find the skbs length,
@@ -1756,6 +1762,8 @@ dhd_dump_memstats(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 		total_txpath_mem, (total_txpath_mem / 1024));
 
 	total_dhd_mem = malloc_mem + total_txpath_mem;
+#endif /* BCMPCIE */
+
 #if defined(DHD_LB_STATS)
 	total_dhd_mem += dhd_lb_mem_usage(dhdp, strbuf);
 #endif /* DHD_LB_STATS */
@@ -2642,6 +2650,329 @@ dhd_flow_ring_debug(dhd_pub_t *dhd, char *msg, uint msglen)
 }
 #endif /* BCMPCIE */
 #endif /* DHD_DEBUG */
+
+#ifdef SYNA_SAR_CUSTOMER_PARAMETER
+
+typedef struct _dhd_sar_parameters {
+	dhd_sar_parameter  other;
+	dhd_sar_parameter  fcc;
+	dhd_sar_parameter  eu;
+	dhd_sar_parameter  latam;
+} dhd_sar_parameters;
+
+static dhd_sar_parameters  gSAR_params;
+
+/* pick up usable parameters */
+static sarctrl_set *dhd_sar_ctrlset_get(
+		dhd_sar_parameter *dhd_sar_param, int advance_mode)
+{
+	sarctrl_set *sarctrl = NULL;
+
+	if (dhd_sar_param == NULL) {
+		DHD_ERROR(("%s: *invalid argument, sar_param=0x%p\n",
+		           __FUNCTION__, dhd_sar_param));
+	} else switch (advance_mode) {
+		case SAR_HEAD:
+			sarctrl = &dhd_sar_param->dynamic;
+			DHD_TRACE(("%s: dynamic=0x%p, sarctrl=0x%p, ver=%d,"
+			           " sarctrl_2g=0x%X, sarctrl_2g_2=0x%X\n",
+			           __FUNCTION__, dhd_sar_param, sarctrl, sarctrl->ver,
+			           sarctrl->basic.sarctrl_2g, sarctrl->basic.sarctrl_2g_2));
+			break;
+		case SAR_GRIP:
+			sarctrl = &dhd_sar_param->grip;
+			DHD_TRACE(("%s: grip=0x%p, sarctrl=0x%p, ver=%d,"
+			           " sarctrl_2g=0x%X, sarctrl_2g_2=0x%X\n",
+			           __FUNCTION__, dhd_sar_param, sarctrl, sarctrl->ver,
+			           sarctrl->basic.sarctrl_2g, sarctrl->basic.sarctrl_2g_2));
+			break;
+		case SAR_BT:
+			sarctrl = &dhd_sar_param->bt;
+			DHD_TRACE(("%s: bt=0x%p, sarctrl=0x%p, ver=%d,"
+			           " sarctrl_2g=0x%X, sarctrl_2g_2=0x%X\n",
+			           __FUNCTION__, dhd_sar_param, sarctrl, sarctrl->ver,
+			           sarctrl->basic.sarctrl_2g, sarctrl->basic.sarctrl_2g_2));
+			break;
+		case SAR_HOTSPOT:
+			sarctrl = &dhd_sar_param->hotspot;
+			DHD_TRACE(("%s: hotspot=0x%p, sarctrl=0x%p, ver=%d,"
+			           " sarctrl_2g=0x%X, sarctrl_2g_2=0x%X\n",
+			           __FUNCTION__, dhd_sar_param, sarctrl, sarctrl->ver,
+			           sarctrl->basic.sarctrl_2g, sarctrl->basic.sarctrl_2g_2));
+			break;
+		default:
+			DHD_ERROR(("%s: *Error, invalid advance_mode=%d\n",
+			           __FUNCTION__, advance_mode));
+	}
+
+	return sarctrl;
+}
+
+int dhd_sar_init_parameter(eCountry_flag_type type, int advance_mode,
+	char *list_str)
+{
+	char          temp_str[16];
+	sarctrl_set  *sarctrl = NULL;
+	uint32       *txpwr_list = NULL;
+	char         *next = NULL;
+	int          len = 0, idx = 0;
+
+	if (list_str == NULL) {
+		DHD_ERROR(("%s: *Error, invalid parameber\n", __FUNCTION__));
+		return BCME_BADARG;
+	} else {
+		next = list_str;
+	}
+
+	switch (type) {
+		case SYNA_COUNTRY_TYPE_FCC:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.fcc, advance_mode);
+			break;
+		case SYNA_COUNTRY_TYPE_EU:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.eu, advance_mode);
+			break;
+		case SYNA_COUNTRY_TYPE_LATAM:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.latam, advance_mode);
+			break;
+		case SYNA_COUNTRY_TYPE_DEFAULT:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.other, advance_mode);
+			break;
+		default:
+			DHD_ERROR(("%s: *Error, invalid type=%d\n", __FUNCTION__, type));
+			return BCME_UNSUPPORTED;
+			break;
+	}
+	if (!sarctrl) {
+		DHD_ERROR(("%s: *Error, invalid advance_mode=%d\n",
+		           __FUNCTION__, advance_mode));
+		return BCME_UNSUPPORTED;
+	}
+
+	/* change dhd_sar_parameter structure to uint32 array.
+	 * use txpwr_list pointer to fill the data
+	 * one by one in following loop code
+	 */
+	txpwr_list = (uint32 *)(&sarctrl->basic);
+	idx = 0;
+	while ((len = strcspn(next, " ,")) > 0) {
+		if (len >= sizeof(temp_str)) {
+			DHD_ERROR(("%s: init '%s' before ','/' ' is too long\n",
+			           __FUNCTION__, next));
+			return BCME_ERROR;
+		}
+		strlcpy(temp_str, next, sizeof(temp_str));
+		temp_str[len] = 0;
+		txpwr_list[idx] = (uint32)simple_strtoul(temp_str, NULL, 0);
+		DHD_TRACE(("%s: get txpwr[%d]=0x%x\n",
+		           __FUNCTION__, idx, txpwr_list[idx]));
+
+		if (idx == CONST_SARCTRL_SET_QTY) {
+			DHD_ERROR(("%s: too many parameters(more than %d): '%s'\n",
+			           __FUNCTION__, idx, list_str));
+			break;
+		}
+
+		idx++;
+		next += len;
+		next += strspn(next, " ,");
+	}
+
+#ifdef VSDB
+	sarctrl->ver = SAR_PARAM_V1_VSDB;
+	if (CONST_SARCTRL_SINGLE_SET_QTY != idx) {
+		DHD_ERROR(("%s: *Waring, idx=%d mismatch VSDB expect=%d\n",
+		           __FUNCTION__, idx, (int)CONST_SARCTRL_SINGLE_SET_QTY));
+	}
+#else /* VSDB */
+	sarctrl->ver = SAR_PARAM_V2_RSDB;
+	if (CONST_SARCTRL_SET_QTY != idx) {
+		DHD_ERROR(("%s: *Waring, idx=%d mismatch RSDB expect=%d\n",
+		           __FUNCTION__, idx, (int)CONST_SARCTRL_SET_QTY));
+	}
+#endif /* VSDB */
+
+	return 0;
+}
+
+int dhd_sar_reset_parameter(void)
+{
+	bzero(&gSAR_params, sizeof(gSAR_params));
+
+	return BCME_OK;
+}
+
+int dhd_sar_set_parameter(dhd_pub_t *dhd_pub, int advance_mode)
+{
+	int                 err = BCME_OK;
+	char                iovbuf[WLC_IOCTL_SMLEN];
+	wl_country_t       *cspec = NULL;
+	sarctrl_set         sarctrl_iov = { 0 }, *sarctrl = NULL;
+	eCountry_flag_type  type = SYNA_COUNTRY_TYPE_INVALID;
+
+	if (dhd_pub == NULL) {
+		DHD_ERROR(("%s: bcm_mkiovar failed.", __FUNCTION__));
+		return BCME_BADARG;
+	} else if (SAR_DISABLE == advance_mode) {
+		DHD_ERROR(("%s: SKIP since disabled.", __FUNCTION__));
+		return BCME_OK;
+	}
+
+	memset(iovbuf, 0, sizeof(iovbuf));
+	if (0 >= bcm_mkiovar("country", NULL, 0, iovbuf, sizeof(iovbuf))) {
+		err = BCME_BUFTOOSHORT;
+		DHD_ERROR(("%s: sar country mkiovar failed.", __FUNCTION__));
+		return err;
+	}
+	err = dhd_wl_ioctl_cmd(dhd_pub, WLC_GET_VAR, iovbuf, sizeof(iovbuf), FALSE, 0);
+	if (err) {
+		DHD_ERROR(("%s: country code get failed\n", __FUNCTION__));
+		return err;
+	}
+	cspec = (wl_country_t *)iovbuf;
+	type = syna_country_check_type(cspec->ccode);
+	switch (type) {
+		case SYNA_COUNTRY_TYPE_FCC:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.fcc, advance_mode);
+			break;
+		case SYNA_COUNTRY_TYPE_EU:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.eu, advance_mode);
+			break;
+		case SYNA_COUNTRY_TYPE_LATAM:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.latam, advance_mode);
+			break;
+		default:
+			sarctrl = dhd_sar_ctrlset_get(&gSAR_params.other, advance_mode);
+			break;
+	}
+	/* check if parameters valid */
+	if ((!sarctrl) || (!sarctrl->ver)) {
+		DHD_ERROR(("%s: *warning, try default for country='%s'(type=%d)\n",
+		           __FUNCTION__, cspec->ccode, type));
+		sarctrl = dhd_sar_ctrlset_get(&gSAR_params.other, advance_mode);
+		if ((!sarctrl) || (!sarctrl->ver)) {
+			/* stop/block setting if customer not set parameters */
+			DHD_ERROR(("%s: *skip since parameter not set\n", __FUNCTION__));
+			return BCME_UNSUPPORTED;
+		}
+	}
+	DHD_TRACE(("%s: country='%s', type=%d, advance_mode=%d\n",
+	           __FUNCTION__, cspec->ccode, type, advance_mode));
+
+	/* prepare IOVAR */
+	sarctrl_iov.ver   = sarctrl->ver;
+	sarctrl_iov.basic = sarctrl->basic;
+	sarctrl_iov.rsdb  = sarctrl->rsdb;
+	DHD_TRACE(("%s: sarctrl_iov=0x%p, ver=%d, sarctrl_2g=0x%X, sarctrl_2g_2=0x%X\n",
+	           __FUNCTION__, &sarctrl_iov, sarctrl_iov.ver,
+	           sarctrl_iov.basic.sarctrl_2g,
+	           sarctrl_iov.basic.sarctrl_2g_2));
+	err = dhd_iovar(dhd_pub, 0, "sar_params", (char *)&sarctrl_iov,
+		sizeof(sarctrl_iov), NULL, 0, TRUE);
+	if (unlikely(err)) {
+		DHD_ERROR(("%s: Failed to set sar_params - error (%d)\n",
+		           __FUNCTION__, err));
+	}
+
+	return err;
+}
+
+int dhd_sar_set(dhd_pub_t *dhd_pub, int sar_val)
+{
+	sar_advance_modes sar_tx_power_val = SAR_DISABLE;
+	int airplane_mode = 0;
+	int err = 0;
+
+	/* Map Android TX power modes to power mode */
+	switch (sar_val) {
+		case SAR_OFF:
+			/* SAR disabled */
+			sar_tx_power_val = SAR_DISABLE;
+			airplane_mode = 0;
+			break;
+		case HEAD_NORMAL:
+			/* HEAD mode, Normal */
+			sar_tx_power_val = SAR_HEAD;
+			airplane_mode = 0;
+			break;
+		case HEAD_AIRPLANE:
+			/* HEAD mode, Airplane */
+			sar_tx_power_val = SAR_HEAD;
+			airplane_mode = 1;
+			break;
+		case GRIP_NORMAL:
+			/* GRIP mode, Normal */
+			sar_tx_power_val = SAR_GRIP;
+			airplane_mode = 0;
+			break;
+		case GRIP_AIRPLANE:
+			/* GRIP mode, Airplane */
+			sar_tx_power_val = SAR_GRIP;
+			airplane_mode = 1;
+			break;
+		case BT_NORMAL:
+			/* BT mode, Normal */
+			sar_tx_power_val = SAR_BT;
+			airplane_mode = 0;
+			break;
+		case BT_AIRPLANE:
+			/* BT mode, Airplane */
+			sar_tx_power_val = SAR_BT;
+			airplane_mode = 1;
+			break;
+		case HOTSPOT_NORMAL:
+			/* HOTSPOT mode, Normal */
+			sar_tx_power_val = SAR_HOTSPOT;
+			airplane_mode = 0;
+			break;
+		case HOTSPOT_AIRPLANE:
+			/* HOTSPOT mode, AIRPLANE */
+			sar_tx_power_val = SAR_HOTSPOT;
+			airplane_mode = 1;
+			break;
+		default:
+			DHD_ERROR(("%s: invalid wifi tx power scenario = %d\n",
+			        __FUNCTION__, sar_tx_power_val));
+			err = -EINVAL;
+			goto exit;
+	}
+
+	if (sar_tx_power_val) {
+		err = dhd_sar_set_parameter(dhd_pub, sar_tx_power_val);
+		if (unlikely(err)) {
+			DHD_ERROR(("%s: Failed to set sar_params - error (%d)\n",
+			           __FUNCTION__, err));
+			goto exit;
+		}
+		sar_tx_power_val = 1; /* as we set sar_params for sar_enable 1 */
+	}
+
+	DHD_TRACE(("%s: sar_mode %d airplane_mode %d\n",
+	           __FUNCTION__, sar_tx_power_val, airplane_mode));
+	err = dhd_iovar(dhd_pub, 0, "fccpwrlimit2g", (char *)&airplane_mode,
+	                sizeof(airplane_mode), NULL, 0, TRUE);
+	if (unlikely(err)) {
+		DHD_ERROR(("%s: Failed to set airplane_mode - error (%d)\n",
+		           __FUNCTION__, err));
+		goto exit;
+	}
+	err = dhd_iovar(dhd_pub, 0, "sar_enable", (char *)&sar_tx_power_val,
+	                sizeof(sar_tx_power_val), NULL, 0, TRUE);
+	if (unlikely(err)) {
+		DHD_ERROR(("%s: Failed to set sar_enable - error (%d)\n",
+		           __FUNCTION__, err));
+		goto exit;
+	}
+
+	/* Cache the tx power mode sent by the hal */
+	dhd_pub->dhd_sar_mode = sar_val;
+	DHD_TRACE(("%s: tx_power_mode %d SUCCESS\n", __FUNCTION__, sar_val));
+
+exit:
+	return err;
+
+}
+
+#endif /* SYNA_SAR_CUSTOMER_PARAMETER */
 
 static int
 dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const char *name,
@@ -4447,6 +4778,10 @@ wl_show_roam_cache_update_event(const char *name, uint status,
 		{WLC_E_STATUS_INVALID, "Invalid status code"}
 	};
 
+	UNUSED_PARAMETER(ntoa_buf);
+	UNUSED_PARAMETER(reason_name);
+	UNUSED_PARAMETER(status_name);
+
 	switch (reason) {
 	case WLC_ROAM_CACHE_UPDATE_NEW_ROAM_CACHE:
 		DHD_EVENT(("Current roam cache status %d, "
@@ -4548,6 +4883,7 @@ wl_show_roam_cache_update_event(const char *name, uint status,
 			{
 				rmc_candidate_info_v1_t *candidate_info =
 					(rmc_candidate_info_v1_t *)(val_xtlv->data);
+				UNUSED_PARAMETER(candidate_info);
 				if (val_xtlv->id == WL_RMC_RPT_XTLV_CANDIDATE_INFO) {
 					DHD_EVENT(("\t Candidate INFO:\n"));
 				} else {
@@ -4721,6 +5057,7 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 		if (datalen >= sizeof(wlc_roam_start_event_t)) {
 			const wlc_roam_start_event_t *roam_start =
 				(wlc_roam_start_event_t *)event_data;
+			UNUSED_PARAMETER(roam_start);
 			DHD_EVENT(("MACEVENT: %s %d, MAC %s, status %d,"
 				" reason %d, auth %d, current bss rssi %d\n",
 				event_name, event_type, eabuf, (int)status, (int)reason,
@@ -4735,6 +5072,7 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 		if (datalen >= sizeof(wlc_roam_prep_event_t)) {
 			const wlc_roam_prep_event_t *roam_prep =
 				(wlc_roam_prep_event_t *)event_data;
+			UNUSED_PARAMETER(roam_prep);
 			DHD_EVENT(("MACEVENT: %s %d, MAC %s, status %d,"
 				" reason %d, auth %d, target bss rssi %d\n",
 				event_name, event_type, eabuf, (int)status, (int)reason,
@@ -4891,6 +5229,7 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 
 	case WLC_E_RSSI: {
 		wl_event_data_rssi_t *e_data = (wl_event_data_rssi_t *)event_data;
+		UNUSED_PARAMETER(e_data);
 		DHD_EVENT(("MACEVENT: %s (RSSI=%d SNR=%d NF=%d)\n", event_name,
 			ntoh32(e_data->rssi), ntoh32(e_data->snr), ntoh32(e_data->noise)));
 		} break;
@@ -5187,6 +5526,7 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 		if (datalen >= sizeof(wlc_bcn_mute_miti_event_data_v1_t)) {
 			const wlc_bcn_mute_miti_event_data_v1_t
 				*bcn_mute_miti_evnt_data = event_data;
+			UNUSED_PARAMETER(bcn_mute_miti_evnt_data);
 			DHD_EVENT(("MACEVENT: %s, reason :%d uatbtt_count: %d\n",
 				event_name, reason, bcn_mute_miti_evnt_data->uatbtt_count));
 		}
@@ -5203,6 +5543,7 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 	case WLC_E_SCAN:
 		{
 			const char *scan_state;
+			UNUSED_PARAMETER(scan_state);
 			if (reason == WL_SCAN_START) {
 				scan_state = "WL_SCAN_START";
 			} else if (reason == WL_SCAN_END) {
@@ -5530,6 +5871,8 @@ dngl_host_event_process(dhd_pub_t *dhdp, bcm_dngl_event_t *event,
 			{
 				uint16 num_resets = ltoh32(spmi_reset_ind_v1_ptr->num_resets);
 				uint16 slave_idx = ltoh32(spmi_reset_ind_v1_ptr->slave_idx);
+				UNUSED_PARAMETER(num_resets);
+				UNUSED_PARAMETER(slave_idx);
 				DHD_EVENT(("DNGL_E_SPMI_RESET_IND resets=%u SPMI core=%u\n",
 					num_resets, slave_idx));
 				break;
@@ -5936,6 +6279,7 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 		}
 #endif /* PCIE_FULL_DONGLE */
 		/* fall through */
+		fallthrough;
 	case WLC_E_DEAUTH:
 	case WLC_E_DEAUTH_IND:
 	case WLC_E_DISASSOC:
@@ -5953,8 +6297,10 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 				del_sta = FALSE;
 			}
 #endif /* WL_CFG80211 */
-			DHD_EVENT(("%s: Link event %d, flags %x, status %x, role %d, del_sta %d\n",
-				__FUNCTION__, type, flags, status, role, del_sta));
+			DHD_EVENT(("%s: Link event %d, flags %x, status %x, "
+				"reason=%d, role %d, del_sta %d\n",
+				__FUNCTION__, type, flags, status,
+				reason, role, del_sta));
 
 			if (del_sta) {
 				DHD_EVENT(("%s: Deleting STA " MACDBG "\n",
@@ -5973,7 +6319,6 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 		}
 #endif /* PCIE_FULL_DONGLE */
 #ifdef DHD_POST_EAPOL_M1_AFTER_ROAM_EVT
-		/* fall through */
 		ifp = dhd_get_ifp(dhd_pub, event->ifidx);
 		if (ifp) {
 			ifp->recv_reassoc_evt = FALSE;
@@ -5981,6 +6326,7 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 		}
 #endif /* DHD_POST_EAPOL_M1_AFTER_ROAM_EVT */
 		/* fall through */
+		fallthrough;
 	default:
 		*ifidx = dhd_ifname2idx(dhd_pub->info, event->ifname);
 #ifdef DHD_UPDATE_INTF_MAC
@@ -7761,7 +8107,7 @@ int dhd_get_download_buffer(dhd_pub_t	*dhd, char *file_path, download_type_t com
 					*length = fw->size;
 					goto err;
 				}
-				*buffer = VMALLOCZ(dhd->osh, fw->size);
+				*buffer = VMALLOCZ(dhd->osh, *length);
 				if (*buffer == NULL) {
 					DHD_ERROR(("%s: Failed to allocate memory %d bytes\n",
 						__FUNCTION__, (int)fw->size));
@@ -8031,13 +8377,7 @@ dhd_download_blob_cached(dhd_pub_t *dhd, char *file_path,
 			file_path, bcmerrorstr(ret)));
 		goto exit;
 	}
-	/* In case of DHD_LINUX_STD_FW_API enabled, 'len' value will
-	 * be updated based on the actual file length and used to allocate the buffer.
-	 * Hence updating the memblock_len which will be used to free the buffer.
-	 */
-#ifdef DHD_LINUX_STD_FW_API
-	memblock_len = len;
-#endif /* DHD_LINUX_STD_FW_API */
+
 	do {
 		chunk_len = MIN(len, MAX_CHUNK_LEN);
 		memcpy(pay_load, memblock + file_offset, chunk_len);
@@ -9553,7 +9893,7 @@ int dhd_free_tdls_peer_list(dhd_pub_t *dhd_pub)
 * based on the debug level specified
 */
 void
-dhd_prhex(const char *msg, volatile uchar *buf, uint nbytes, uint8 dbg_level)
+dhd_prhex(const char *msg, volatile uchar *buf, uint nbytes, uint32 dbg_level)
 {
 	char line[128], *p;
 	int len = sizeof(line);
@@ -9561,12 +9901,15 @@ dhd_prhex(const char *msg, volatile uchar *buf, uint nbytes, uint8 dbg_level)
 	uint i;
 
 	if (msg && (msg[0] != '\0')) {
-		if (dbg_level == DHD_ERROR_VAL)
+		if (dbg_level == DHD_ERROR_VAL) {
 			DHD_ERROR(("%s:\n", msg));
-		else if (dbg_level == DHD_INFO_VAL)
+		} else if (dbg_level == DHD_INFO_VAL) {
 			DHD_INFO(("%s:\n", msg));
-		else if (dbg_level == DHD_TRACE_VAL)
+		} else if (dbg_level == DHD_TRACE_VAL) {
 			DHD_TRACE(("%s:\n", msg));
+		} else if (dbg_level == DHD_RPM_VAL) {
+			DHD_RPM(("%s:\n", msg));
+		}
 	}
 
 	p = line;
@@ -9584,12 +9927,16 @@ dhd_prhex(const char *msg, volatile uchar *buf, uint nbytes, uint8 dbg_level)
 
 		if (i % 16 == 15) {
 			/* flush line */
-			if (dbg_level == DHD_ERROR_VAL)
+			if (dbg_level == DHD_ERROR_VAL) {
 				DHD_ERROR(("%s:\n", line));
-			else if (dbg_level == DHD_INFO_VAL)
+			} else if (dbg_level == DHD_INFO_VAL) {
 				DHD_INFO(("%s:\n", line));
-			else if (dbg_level == DHD_TRACE_VAL)
+			} else if (dbg_level == DHD_TRACE_VAL) {
 				DHD_TRACE(("%s:\n", line));
+			} else if (dbg_level == DHD_RPM_VAL) {
+				DHD_RPM(("%s:\n", line));
+			}
+
 			p = line;
 			len = sizeof(line);
 		}
@@ -9597,12 +9944,15 @@ dhd_prhex(const char *msg, volatile uchar *buf, uint nbytes, uint8 dbg_level)
 
 	/* flush last partial line */
 	if (p != line) {
-		if (dbg_level == DHD_ERROR_VAL)
+		if (dbg_level == DHD_ERROR_VAL) {
 			DHD_ERROR(("%s:\n", line));
-		else if (dbg_level == DHD_INFO_VAL)
+		} else if (dbg_level == DHD_INFO_VAL) {
 			DHD_INFO(("%s:\n", line));
-		else if (dbg_level == DHD_TRACE_VAL)
+		} else if (dbg_level == DHD_TRACE_VAL) {
 			DHD_TRACE(("%s:\n", line));
+		} else if (dbg_level == DHD_RPM_VAL) {
+			DHD_RPM(("%s:\n", line));
+		}
 	}
 }
 

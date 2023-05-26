@@ -41,9 +41,6 @@
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/pm_wakeup.h>
 #endif /* CONFIG_HAS_WAKELOCK */
-#if defined(CUSTOMER_HW_ROCKCHIP) && defined(BCMPCIE)
-#include <linux/wakelock.h>
-#endif
 #include <dngl_stats.h>
 #include <dhd.h>
 #include <dhd_dbg.h>
@@ -145,9 +142,6 @@ typedef struct dhd_info {
 #endif /* DHD_USE_SCAN_WAKELOCK */
 	struct wakeup_source *wl_nanwake; /* NAN wakelock */
 #endif /* CONFIG_HAS_WAKELOCK */
-#if defined(CUSTOMER_HW_ROCKCHIP) && defined(BCMPCIE)
-	struct wake_lock rx_wakelock;
-#endif
 
 #if defined(OEM_ANDROID)
 	/* net_device interface lock, prevent race conditions among net_dev interface
@@ -360,6 +354,7 @@ typedef struct dhd_info {
 	uint32 *rxc_hist[HIST_BIN_SIZE];
 	struct kobject dhd_lb_kobj;
 	bool dhd_lb_candidacy_override;
+	enum cpuhp_state dhd_cpuhp_state;
 #endif /* DHD_LB */
 
 	/* DPC bounds sysfs */

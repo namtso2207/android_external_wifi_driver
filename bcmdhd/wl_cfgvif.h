@@ -126,10 +126,13 @@ extern s32 wl_cfg80211_handle_if_role_conflict(struct bcm_cfg80211 *cfg, wl_ifty
 #endif /* WL_IFACE_MGMT */
 
 extern s32 wl_get_vif_macaddr(struct bcm_cfg80211 *cfg, u16 wl_iftype, u8 *mac_addr);
-extern s32 wl_release_vif_macaddr(struct bcm_cfg80211 *cfg, u8 *mac_addr, u16 wl_iftype);
+extern s32 wl_release_vif_macaddr(struct bcm_cfg80211 *cfg, const u8 *mac_addr, u16 wl_iftype);
 
-int wl_cfg80211_set_he_mode(struct net_device *dev, struct bcm_cfg80211 *cfg,
+int wl_cfg80211_change_he_features(struct net_device *dev, struct bcm_cfg80211 *cfg,
 		s32 bssidx, u32 interface_type, bool set);
+extern int wl_cfg80211_set_he_features(struct net_device *dev, struct bcm_cfg80211 *cfg,
+		s32 bssidx, u32 interface_type, uint features);
+
 #ifdef SUPPORT_AP_SUSPEND
 extern int wl_set_ap_suspend(struct net_device *dev, bool enable, char *ifname);
 #endif /* SUPPORT_AP_SUSPEND */
@@ -283,6 +286,8 @@ chanspec_t wl_cfg80211_get_ap_bw_limited_chspec(struct bcm_cfg80211 *cfg,
 int wl_cfg80211_set_softap_bw(struct bcm_cfg80211 *cfg, uint32 band, uint32 limit);
 #endif /* LIMIT_AP_BW */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 8, 0))
 extern int wl_chspec_chandef(chanspec_t chanspec,
 	struct cfg80211_chan_def *chandef, struct wiphy *wiphy);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION (3, 8, 0))) */
 #endif /* _wl_cfgvif_h_ */

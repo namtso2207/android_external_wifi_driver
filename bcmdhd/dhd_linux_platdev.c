@@ -609,6 +609,11 @@ static int wifi_ctrlfunc_register_drv(void)
 	is_power_on = FALSE;
 	wifi_plat_dev_probe_ret = 0;
 	dhd_wifi_platdata = kzalloc(sizeof(bcmdhd_wifi_platdata_t), GFP_KERNEL);
+	if (dhd_wifi_platdata == NULL) {
+		DHD_ERROR(("%s:dhd_wifi_platdata alloc failed", __FUNCTION__));
+		kfree(adapter);
+		return -ENOMEM;
+	}
 	dhd_wifi_platdata->num_adapters = 1;
 	dhd_wifi_platdata->adapters = adapter;
 	init_waitqueue_head(&adapter->status_event);

@@ -36,13 +36,13 @@
 #include <bcmutils.h>
 #include <bcmendian.h>
 #include <bcmstdlib_s.h>
+#include <dhd.h>
 #ifdef BCMDRIVER
 #include <dhd_dbg.h>
 #else
 #include <errno.h>
 #endif /* BCMDRIVER */
 #include <fwpkg_utils.h>
-#include <dhd.h>
 
 #define FWPKG_UNIT_IDX(tag)	(tag-1)
 

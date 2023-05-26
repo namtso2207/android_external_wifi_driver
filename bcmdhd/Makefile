@@ -1,6 +1,6 @@
 # bcmdhd
 #
-# Copyright (C) 2022, Broadcom.
+# Copyright (C) 2023, Broadcom.
 #
 #      Unless you and Broadcom execute a separate written software license
 # agreement governing use of this software, this software is licensed to you
@@ -42,6 +42,7 @@ CONFIG_BCMDHD_DEBUG := y
 #CONFIG_BCMDHD_WAPI := y
 #CONFIG_BCMDHD_RANDOM_MAC := y
 CONFIG_BCMDHD_REQUEST_FW := y
+#CONFIG_BCMDHD_FW_SIGNATURE := y
 #CONFIG_BCMDHD_DWDS := y
 CONFIG_BCMDHD_TPUT := y
 
@@ -78,7 +79,7 @@ DHDOFILES = aiutils.o siutils.o sbutils.o                                 \
 	dhd_debug_linux.o dhd_debug.o dhd_mschdbg.o dhd_dbg_ring.o            \
 	hnd_pktq.o hnd_pktpool.o linux_pkt.o frag.o                           \
 	dhd_linux_exportfs.o dhd_linux_pktdump.o dhd_mschdbg.o linuxerrmap.o  \
-	dhd_linux_tx.o dhd_linux_rx.o                                         \
+	dhd_linux_tx.o dhd_linux_rx.o fwpkg_utils.o                           \
 	dhd_config.o dhd_ccode.o wl_event.o wl_android_ext.o                  \
 	wl_iapsta.o wl_escan.o wl_timer.o
 
@@ -171,7 +172,7 @@ ifneq ($(CONFIG_PCI_MSI),)
 	DHDCFLAGS += -DDHD_MSI_SUPPORT
 endif
 DHDOFILES += dhd_pcie.o dhd_pcie_linux.o pcie_core.o dhd_flowring.o       \
-	dhd_msgbuf.o dhd_linux_lb.o fwpkg_utils.o
+	dhd_msgbuf.o dhd_linux_lb.o
 endif
 
 #BCMDHD_USB
@@ -434,6 +435,11 @@ ifeq ($(CONFIG_BCMDHD_FW_PATH),)
 endif
 endif
 
+ifeq ($(CONFIG_BCMDHD_FW_SIGNATURE),y)
+	DHDCFLAGS += -DFW_SIGNATURE
+	DHDCFLAGS += -DBL_HEAP_START_GAP_SIZE=0x1000 -DBL_HEAP_SIZE=0x10000
+endif
+
 ifeq ($(CONFIG_BCMDHD_AG),y)
 	DHDCFLAGS += -DBAND_AG
 endif
@@ -447,7 +453,12 @@ else
 endif
 	DHDCFLAGS += -DSTATIC_WL_PRIV_STRUCT -DENHANCED_STATIC_BUF
 	DHDCFLAGS += -DCONFIG_DHD_USE_STATIC_BUF
+ifneq ($(filter -DDHD_LOG_DUMP, $(DHDCFLAGS)),)
 	DHDCFLAGS += -DDHD_USE_STATIC_MEMDUMP
+endif
+ifneq ($(filter -DDHD_FW_COREDUMP, $(DHDCFLAGS)),)
+	DHDCFLAGS += -DDHD_USE_STATIC_MEMDUMP
+endif
 ifneq ($(CONFIG_BCMDHD_PCIE),)
 	DHDCFLAGS += -DDHD_USE_STATIC_CTRLBUF
 endif
@@ -483,6 +494,5 @@ bcmdhd_usb:
 	$(MAKE) -C $(LINUXDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules CONFIG_BCMDHD=m CONFIG_BCMDHD_USB=y
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) clean
-	$(RM) Module.markers
-	$(RM) modules.order
+	rm -rf *.o *.ko *.mod.c *~ .*.cmd *.o.cmd .*.o.cmd *.mod \
+	Module.symvers modules.order .tmp_versions modules.builtin

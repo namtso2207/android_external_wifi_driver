@@ -35,13 +35,11 @@
 
 #include <bcmendian.h>
 
-#ifdef OEM_ANDROID
 #include <linuxver.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/sort.h>
-#endif
 
 #include <dngl_stats.h>
 #include <wlioctl.h>
@@ -74,7 +72,6 @@
 #define dtohchanspec(i) (i)
 #endif /* IL_BIGENDINA */
 
-#ifdef OEM_ANDROID
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
 #define COMPLETION_WAIT_QUEUE_ACTIVE(wait_queue) swait_active(wait_queue)
 #else
@@ -4648,7 +4645,6 @@ int dhd_pno_deinit(dhd_pub_t *dhd)
 	dhd->pno_state = NULL;
 	return err;
 }
-#endif /* OEM_ANDROID */
 
 #ifndef OEM_ANDROID
 #if defined(NDIS)

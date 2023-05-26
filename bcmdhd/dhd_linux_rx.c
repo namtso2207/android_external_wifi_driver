@@ -57,6 +57,7 @@
 #include <linux/net_stat_tizen.h>
 #endif /* CONFIG_TIZEN */
 #include <net/addrconf.h>
+#include <net/ndisc.h>
 #ifdef ENABLE_ADAPTIVE_SCHED
 #include <linux/cpufreq.h>
 #endif /* ENABLE_ADAPTIVE_SCHED */
@@ -766,7 +767,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 #if defined(DHD_WAKE_STATUS) && defined(DHD_WAKEPKT_DUMP)
 		if (pkt_wake) {
 			DHD_ERROR(("##### dhdpcie_host_wake caused by packets\n"));
-			dhd_prhex("[wakepkt_dump]", (char*)dump_data, MIN(len, 64), DHD_ERROR_VAL);
+			dhd_prhex("[wakepkt_dump]", (char*)dump_data, MIN(len, 64), DHD_RPM_VAL);
 			DHD_ERROR(("config check in_suspend: %d\n", dhdp->in_suspend));
 #ifdef ARP_OFFLOAD_SUPPORT
 			DHD_ERROR(("arp hmac_update:%d \n", dhdp->hmac_updated));
@@ -1103,7 +1104,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 				netif_receive_skb(skb);
 #endif /* ENABLE_DHD_GRO */
 #else /* !defined(DHD_LB_RXP) */
-				netif_rx_ni(skb);
+				dhd_netif_rx_ni(skb);
 #endif /* !defined(DHD_LB_RXP) */
 			}
 		}
@@ -1115,6 +1116,9 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 #if defined(OEM_ANDROID)
 	DHD_OS_WAKE_LOCK_RX_TIMEOUT_ENABLE(dhdp, tout_rx);
 	DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_ENABLE(dhdp, tout_ctrl);
+
+	/* To immediately notify the host that timeout is enabled */
+	DHD_OS_WAKE_LOCK_TIMEOUT(dhdp);
 #endif /* OEM_ANDROID */
 }
 
@@ -1176,7 +1180,7 @@ dhd_rxf_thread(void *data)
 					dhd_rx_mon_pkt_sdio(pub, skb, 0);
 				else
 #endif /* WL_MONITOR && BCMSDIO */
-				netif_rx_ni(skb);
+				dhd_netif_rx_ni(skb);
 				skb = skbnext;
 			}
 #if defined(WAIT_DEQUEUE)
@@ -1223,7 +1227,7 @@ dhd_sched_rxf(dhd_pub_t *dhdp, void *skb)
 			PKTSETNEXT(dhdp->osh, skbp, NULL);
 			bcm_object_trace_opr(skb, BCM_OBJDBG_REMOVE,
 				__FUNCTION__, __LINE__);
-			netif_rx_ni(skbp);
+			dhd_netif_rx_ni(skbp);
 			skbp = skbnext;
 		}
 		DHD_ERROR(("send skb to kernel backlog without rxf_thread\n"));
@@ -1248,7 +1252,7 @@ dhd_sched_rxf(dhd_pub_t *dhdp, void *skb)
 
 #ifdef WL_MONITOR
 #ifdef BCMSDIO
-static void
+void
 dhd_rx_mon_pkt_sdio(dhd_pub_t *dhdp, void *pkt, int ifidx)
 {
 	dhd_info_t *dhd = (dhd_info_t *)dhdp->info;
@@ -1412,10 +1416,15 @@ dhd_rx_mon_pkt(dhd_pub_t *dhdp, host_rxbuf_cmpl_t* msg, void *pkt, int ifidx)
 		bcm_object_trace_opr(dhd->monitor_skb, BCM_OBJDBG_REMOVE,
 			__FUNCTION__, __LINE__);
 
-		netif_rx_ni(dhd->monitor_skb);
+		dhd_netif_rx_ni(dhd->monitor_skb);
 	}
 
 	dhd->monitor_skb = NULL;
+
+#if defined(OEM_ANDROID)
+	DHD_OS_WAKE_LOCK_RX_TIMEOUT_ENABLE(dhdp, DHD_MONITOR_TIMEOUT_MS);
+	DHD_OS_WAKE_LOCK_TIMEOUT(dhdp);
+#endif /* OEM_ANDROID */
 }
 #endif /* PCIE_FULL_DONGLE */
 #endif /* WL_MONITOR */

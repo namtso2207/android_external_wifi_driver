@@ -4114,7 +4114,7 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 	bcmerror = fwpkg_init(&bus->fwpkg, pfw_path);
 	if (bcmerror == BCME_ERROR) {
-		printf("%s: Open firmware file failed %s\n", __FUNCTION__, pfw_path);
+		printf("%s: fwpkg_init failed %s\n", __FUNCTION__, pfw_path);
 		goto err;
 	}
 	fwpkg = &bus->fwpkg;
@@ -4129,12 +4129,12 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 	if (bcmerror == BCME_UNSUPPORTED) {
 		file_size = fwpkg->file_size;
-		DHD_INFO(("%s Using SINGLE image (size %d)\n",
+		DHD_ERROR(("%s Using SINGLE image (size %d)\n",
 			__FUNCTION__, file_size));
 	} else {
 		file_size = fwpkg_get_firmware_img_size(fwpkg);
 		strlcpy(bus->fwsig_filename, pfw_path, sizeof(bus->fwsig_filename));
-		DHD_INFO(("%s Using COMBINED image (size %d)\n",
+		DHD_ERROR(("%s Using COMBINED image (size %d)\n",
 			__FUNCTION__, file_size));
 	}
 	bus->fw_download_len = file_size;
@@ -4324,11 +4324,7 @@ dhdpcie_download_nvram(struct dhd_bus *bus)
 	} else {
 		nvram_uefi_exists = TRUE;
 	}
-#ifdef DHD_LINUX_STD_FW_API
-	memblock_len = len;
-#else
 	memblock_len = MAX_NVRAMBUF_SIZE;
-#endif /* DHD_LINUX_STD_FW_API */
 
 	DHD_ERROR_MEM(("%s: dhd_get_download_buffer len %d\n", __FUNCTION__, len));
 
