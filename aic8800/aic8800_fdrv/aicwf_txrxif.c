@@ -93,7 +93,6 @@ int aicwf_bus_init(uint bus_hdrlen, struct device *dev)
 	init_completion(&bus_if->busrx_trgg);
 #ifdef AICWF_SDIO_SUPPORT
 	spin_lock_init(&bus_if->bus_priv.sdio->wslock);//AIDEN test
-	atomic_set(&bus_if->bus_priv.sdio->irq_sdio_atomic, 0);//AIDEN test
 	bus_if->bustx_thread = kthread_run(sdio_bustx_thread, (void *)bus_if, "aicwf_bustx_thread");
 	bus_if->busrx_thread = kthread_run(sdio_busrx_thread, (void *)bus_if->bus_priv.sdio->rx_priv, "aicwf_busrx_thread");
 #endif

@@ -291,6 +291,13 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
 	struct rwnx_txq *txq;
 	u16 netdev_queue;
 	bool tdls_mgmgt_frame = false;
+    int nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX;
+
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
+        ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+        g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
+            nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
+    }
 
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_STATION:
@@ -421,10 +428,12 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
 		   for AP interface, select BCMC queue
 		   (TODO: select another queue if BCMC queue is stopped) */
 		skb->priority = PRIO_STA_NULL;
-		netdev_queue = NX_BCMC_TXQ_NDEV_IDX;
+		netdev_queue = nx_bcmc_txq_ndev_idx;
 	}
 
+#ifndef CONFIG_ONE_TXQ
 	BUG_ON(netdev_queue >= NX_NB_NDEV_TXQ);
+#endif
 
 	return netdev_queue;
 }
@@ -492,7 +501,6 @@ static struct rwnx_sta *rwnx_get_tx_priv(struct rwnx_vif *rwnx_vif,
 
 
     if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) ||
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
             nx_remote_sta_max = NX_REMOTE_STA_MAX_FOR_OLD_IC;
@@ -1217,6 +1225,11 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	u8 tid;
 
 	struct ethhdr eth_t;
+
+#ifdef CONFIG_ONE_TXQ
+    skb->queue_mapping = rwnx_select_txq(rwnx_vif, skb);
+#endif
+
 	memcpy(&eth_t, skb->data, sizeof(struct ethhdr));
 
 	sk_pacing_shift_update(skb->sk, rwnx_hw->tcp_pacing_shift);
@@ -1419,7 +1432,6 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
 	#endif
 
     if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) ||
         ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
             nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;

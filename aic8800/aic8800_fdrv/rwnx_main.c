@@ -50,6 +50,7 @@
 #include "aic_bsp_export.h"
 #include "aicwf_compat_8800dc.h"
 #include "aicwf_compat_8800d80.h"
+#include "rwnx_wakelock.h"
 
 
 #define RW_DRV_DESCRIPTION  "RivieraWaves 11nac driver for Linux cfg80211"
@@ -916,6 +917,7 @@ static int rwnx_open(struct net_device *dev)
 	struct rwnx_hw *rwnx_hw = rwnx_vif->rwnx_hw;
 	struct mm_add_if_cfm add_if_cfm;
 	int error = 0;
+    u8 rwnx_rx_gain = 0x0E;
 
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
 
@@ -928,6 +930,15 @@ static int rwnx_open(struct net_device *dev)
 	if (rwnx_hw->vif_started == 0) {
 		// Start the FW
 	   error = rwnx_send_start(rwnx_hw);
+       if (error)
+		  return error;
+
+       if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW) {
+            error = rwnx_send_dbg_mem_mask_write_req(rwnx_hw, 0x4033b300, 0xFF, rwnx_rx_gain);
+            if(error){
+                return error;
+            }
+       }
 
 	   #ifdef CONFIG_COEX
 	   if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801 ||
@@ -939,9 +950,6 @@ static int rwnx_open(struct net_device *dev)
 		}
 	   }
 	   #endif
-
-	   if (error)
-		   return error;
 
 	   /* Device is now started */
 	   set_bit(RWNX_DEV_STARTED, &rwnx_hw->drv_flags);
@@ -1185,7 +1193,7 @@ static int rwnx_close(struct net_device *dev)
 
 #ifdef CONFIG_GPIO_WAKEUP
 	//open lp mode
-//	rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, 1);
+	//rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, 1);
 #if defined(CONFIG_SDIO_PWRCTRL)
 		aicwf_sdio_pwr_stctl(g_rwnx_plat->sdiodev, SDIO_SLEEP_ST);
 #endif
@@ -1234,7 +1242,9 @@ enum {
 	GET_COB_CAL_RES,
 	RDWR_EFUSE_USRDATA,
 	SET_NOTCH,
-	SETSUSPENDMODE,
+    RDWR_PWROFSTFINE,
+    RDWR_EFUSE_PWROFSTFINE,
+    RDWR_EFUSE_SDIOCFG,
 
 };
 
@@ -1885,6 +1895,33 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
 			}
 			memcpy(command, &cfm.rftest_result[0], 7);
 			bytes_written = 7;
+        } else if (strcasecmp(argv[0], "RDWR_PWROFSTFINE") == 0) {
+            u8_l func = 0;
+            AICWFDBG(LOGINFO, "read/write txpwr offset fine\n");
+            if (argc > 1) {
+                func = (u8_l)command_strtoul(argv[1], NULL, 16);
+            }
+            if (func == 0) { // read cur
+                rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, RDWR_PWROFSTFINE, 0, NULL, &cfm);
+            } else if (func <= 2) { // write 2.4g/5g pwr ofst
+                if (argc > 3) {
+                    u8_l chgrp = (u8_l)command_strtoul(argv[2], NULL, 16);
+                    s8_l pwrofst = (u8_l)command_strtoul(argv[3], NULL, 10);
+                    u8_l buf[3] = {func, chgrp, (u8_l)pwrofst};
+                    AICWFDBG(LOGINFO, "set pwrofstfine:[%x][%x]=%d\r\n", func, chgrp, pwrofst);
+                    rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, RDWR_PWROFSTFINE, sizeof(buf), buf, &cfm);
+                } else {
+                    AICWFDBG(LOGERROR, "wrong args\n");
+                    bytes_written = -EINVAL;
+                    break;
+                }
+            } else {
+                AICWFDBG(LOGERROR, "wrong func: %x\n", func);
+                bytes_written = -EINVAL;
+                break;
+            }
+            memcpy(command, &cfm.rftest_result[0], 7);
+            bytes_written = 7;
 		} else if (strcasecmp(argv[0], "RDWR_DRVIBIT") == 0) {
 			u8_l func = 0;
 			AICWFDBG(LOGINFO, "read/write pa drv_ibit\n");
@@ -1982,6 +2019,39 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
 			}
 			memcpy(command, &cfm.rftest_result[0], 4);
 			bytes_written = 4;
+        } else if (strcasecmp(argv[0], "RDWR_EFUSE_PWROFSTFINE") == 0) {
+            u8_l func = 0;
+            AICWFDBG(LOGINFO, "read/write txpwr offset fine into efuse\n");
+            if (argc > 1) {
+                func = (u8_l)command_strtoul(argv[1], NULL, 16);
+            }
+            if (func == 0) { // read cur
+                rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, RDWR_EFUSE_PWROFSTFINE, 0, NULL, &cfm);
+            } else if (func <= 2) { // write 2.4g/5g pwr ofst
+                if (argc > 3) {
+                    u8_l chgrp = (u8_l)command_strtoul(argv[2], NULL, 16);
+                    s8_l pwrofst = (u8_l)command_strtoul(argv[3], NULL, 10);
+                    u8_l buf[3] = {func, chgrp, (u8_l)pwrofst};
+                    AICWFDBG(LOGINFO, "set efuse pwrofstfine:[%x][%x]=%d\r\n", func, chgrp, pwrofst);
+                    rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, RDWR_EFUSE_PWROFSTFINE, sizeof(buf), buf, &cfm);
+                } else {
+                    AICWFDBG(LOGERROR, "wrong args\n");
+                    bytes_written = -EINVAL;
+                    break;
+                }
+            } else {
+                AICWFDBG(LOGERROR, "wrong func: %x\n", func);
+                bytes_written = -EINVAL;
+                break;
+            }
+            if ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC) ||
+                (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW)) { // 6 = 3 (2.4g) * 2
+                memcpy(command, &cfm.rftest_result[0], 6);
+                bytes_written = 6;
+            } else { // 7 = 3(2.4g) + 4(5g)
+                memcpy(command, &cfm.rftest_result[0], 7);
+                bytes_written = 7;
+            }
 		} else if (strcasecmp(argv[0], "SET_PAPR") == 0) {
 			AICWFDBG(LOGINFO, "set papr\n");
 			if (argc > 1) {
@@ -2050,6 +2120,32 @@ int handle_private_cmd(struct net_device *net, char *command, u32 cmd_len)
                  bytes_written = -EINVAL;
                  break;
              }
+        } else if (strcasecmp(argv[0], "RDWR_EFUSE_SDIOCFG") == 0) {
+            u8_l func = 0;
+            AICWFDBG(LOGINFO, "read/write sdiocfg_bit into efuse\n");
+            if (argc > 1) {
+                func = (u8_l)command_strtoul(argv[1], NULL, 16);
+            }
+            if (func == 0) { // read cur
+                rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, RDWR_EFUSE_SDIOCFG, 0, NULL, &cfm);
+            } else if (func == 1) { // write sdiocfg
+                if (argc > 2) {
+                u8_l ibit = (u8_l)command_strtoul(argv[2], NULL, 16);
+                u8_l buf[2] = {func, ibit};
+                AICWFDBG(LOGINFO, "set efuse sdiocfg:[%x]=%x\r\n", func, ibit);
+                rwnx_send_rftest_req(g_rwnx_plat->sdiodev->rwnx_hw, RDWR_EFUSE_SDIOCFG, sizeof(buf), buf, &cfm);
+                } else {
+                    AICWFDBG(LOGERROR, "wrong args\n");
+                    bytes_written = -EINVAL;
+                    break;
+                }
+            } else {
+                AICWFDBG(LOGERROR, "wrong func: %x\n", func);
+                bytes_written = -EINVAL;
+                break;
+            }
+            memcpy(command, &cfm.rftest_result[0], 4);
+            bytes_written = 4;
 		} else if (strcasecmp(argv[0], "SETSUSPENDMODE") == 0 && testmode == 0) {
 	#ifdef AICWF_SDIO_SUPPORT
 			#ifdef CONFIG_GPIO_WAKEUP
@@ -2558,7 +2654,9 @@ static const struct net_device_ops rwnx_netdev_ops = {
 	.ndo_do_ioctl           = rwnx_do_ioctl,
 	.ndo_start_xmit         = rwnx_start_xmit,
 	.ndo_get_stats          = rwnx_get_stats,
+#ifndef CONFIG_ONE_TXQ
 	.ndo_select_queue       = rwnx_select_queue,
+#endif
 #ifdef CONFIG_SUPPORT_REALTIME_CHANGE_MAC
 	.ndo_set_mac_address    = rwnx_set_mac_address
 #endif
@@ -2613,7 +2711,6 @@ static struct rwnx_vif *rwnx_interface_add(struct rwnx_hw *rwnx_hw,
     int nx_nb_ndev_txq = NX_NB_NDEV_TXQ;
 
     if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
-		(g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) ||
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_nb_ndev_txq = NX_NB_NDEV_TXQ_FOR_OLD_IC;
@@ -2650,8 +2747,14 @@ static struct rwnx_vif *rwnx_interface_add(struct rwnx_hw *rwnx_hw,
 	}
 	#endif
 
-	ndev = alloc_netdev_mqs(sizeof(*vif), name, name_assign_type,
-							rwnx_netdev_setup, nx_nb_ndev_txq, 1);
+#ifndef CONFIG_ONE_TXQ
+    ndev = alloc_netdev_mqs(sizeof(*vif), name, name_assign_type,
+                                rwnx_netdev_setup, nx_nb_ndev_txq, 1);
+#else
+    ndev = alloc_netdev_mqs(sizeof(*vif), name, name_assign_type,
+                                    rwnx_netdev_setup, 1, 1);
+#endif
+
 	if (!ndev)
 		return NULL;
 
@@ -3242,11 +3345,14 @@ static int rwnx_cfg80211_scan(struct wiphy *wiphy,
 	}
 
 	if (scanning) {
-		AICWFDBG(LOGERROR, "is scanning, abort\n");
+		AICWFDBG(LOGERROR, "%s is scanning, abort\n", __func__);
+        #if 0
 		error =  rwnx_send_scanu_cancel_req(rwnx_hw, NULL);
 		if (error)
 			return error;
 		msleep(150);
+        #endif
+        return -EBUSY;
 	}
 
 	rwnx_hw->scan_request = request;
@@ -3583,9 +3689,9 @@ static int rwnx_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 #ifdef CONFIG_SCHED_SCAN
 
 static int rwnx_cfg80211_sched_scan_stop(struct wiphy *wiphy,
-					   struct net_device *ndev, 
+					   struct net_device *ndev 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-					   u64 reqid)
+					   ,u64 reqid)
 #else
                         )
 #endif
@@ -3593,9 +3699,10 @@ static int rwnx_cfg80211_sched_scan_stop(struct wiphy *wiphy,
 
 	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
 	//struct rwnx_vif *rwnx_vif = netdev_priv(dev);
-	AICWFDBG(LOGINFO, "%s enter \r\n", __func__);
+	AICWFDBG(LOGINFO, "%s enter wiphy:%p\r\n", __func__, wiphy);
 
     if(rwnx_hw->scan_request){
+        AICWFDBG(LOGINFO, "%s rwnx_send_scanu_cancel_req\r\n", __func__);
         return rwnx_send_scanu_cancel_req(rwnx_hw, NULL);
     }else{
         return 0;
@@ -3610,12 +3717,17 @@ static int rwnx_cfg80211_sched_scan_start(struct wiphy *wiphy,
 {	
     struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
 	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
-    struct cfg80211_scan_request *scan_request;
+    struct cfg80211_scan_request *scan_request = NULL;
 
     int ret = 0;
     int index = 0;
     
-    AICWFDBG(LOGINFO, "%s enter \r\n", __func__);
+    AICWFDBG(LOGINFO, "%s enter wiphy:%p\r\n", __func__, wiphy);
+
+    if(rwnx_hw->is_sched_scan || scanning){
+        AICWFDBG(LOGERROR, "%s is_sched_scanning and scanning, busy", __func__);
+        return -EBUSY;
+    }
 
     scan_request = (struct cfg80211_scan_request *)kmalloc(sizeof(struct cfg80211_scan_request), GFP_KERNEL);
 
@@ -3663,7 +3775,13 @@ static int rwnx_cfg80211_sched_scan_start(struct wiphy *wiphy,
     
     rwnx_hw->is_sched_scan = true;
     
-    ret = rwnx_cfg80211_scan(wiphy, scan_request);
+    if(scanning){
+        AICWFDBG(LOGERROR, "%s scanning, about it", __func__);
+        kfree(scan_request);
+        return -EBUSY;
+    }else{
+        ret = rwnx_cfg80211_scan(wiphy, scan_request);
+    }
 
 	return ret;
 }
@@ -4825,7 +4943,12 @@ static int rwnx_cfg80211_dump_survey(struct wiphy *wiphy, struct net_device *net
 		info->noise = rwnx_survey->noise_dbm;
 
 		// Set the survey report as not used
-		rwnx_survey->filled = 0;
+        if(info->noise == 0){
+		    rwnx_survey->filled = 0;
+        }else{
+            rwnx_survey->filled |= SURVEY_INFO_NOISE_DBM;
+        }
+
 	}
 
 	return 0;
@@ -6249,6 +6372,25 @@ int rwnx_ic_system_init(struct rwnx_hw *rwnx_hw){
 
 	AICWFDBG(LOGINFO, "FDRV chip_id=%x, chip_sub_id=%x!!\n", chip_id, chip_sub_id);
 
+#ifdef CONFIG_OOB
+    if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80) {
+        u32 memdata_temp = 0x00000006;
+        int ret;
+        ret = rwnx_send_dbg_mem_block_write_req(rwnx_hw, 0x40504084, 4, &memdata_temp);
+        if (ret) {
+            AICWFDBG(LOGERROR, "[0x40504084] write fail: %d\n", ret);
+            return -1;
+        }
+
+        ret = rwnx_send_dbg_mem_read_req(rwnx_hw, 0x40504084, &rd_mem_addr_cfm);
+        if (ret) {
+            AICWFDBG(LOGERROR, "[0x40504084] rd fail\n");
+            return -1;
+        }
+        AICWFDBG(LOGINFO, "rd [0x40504084] = %x\n", rd_mem_addr_cfm.memdata);
+    }
+#endif
+
 	if (rwnx_platform_on(rwnx_hw, NULL))
 			return -1;
 #if defined(CONFIG_START_FROM_BOOTROM)
@@ -6292,7 +6434,53 @@ int rwnx_ic_rf_init(struct rwnx_hw *rwnx_hw){
 }
 
 
+#ifdef CONFIG_PLATFORM_ALLWINNER
+#ifdef CONFIG_USE_CUSTOMER_MAC
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+extern int get_custom_mac_address(int fmt, char *name, char *addr);
+#else
+extern int get_wifi_custom_mac_address(char *addr_str);
+#endif
+#endif//CONFIG_USE_CUSTOMER_MAC
+#endif//CONFIG_PLATFORM_ALLWINNER
 
+#ifdef CONFIG_PLATFORM_ROCKCHIP
+#include <linux/rfkill-wlan.h>
+#endif
+
+#ifdef CONFIG_USE_CUSTOMER_MAC
+int rwnx_get_custom_mac_addr(u8_l *mac_addr_efuse){
+    int ret = 0;
+
+#ifdef CONFIG_PLATFORM_ALLWINNER    
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+        ret = get_custom_mac_address(1, "wifi", mac_addr_efuse);
+#else
+        ret = get_wifi_custom_mac_address(addr_str);
+        if (ret >= 0) {
+            sscanf(addr_str, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                    &mac_addr_efuse[0], &mac_addr_efuse[1], &mac_addr_efuse[2],
+                    &mac_addr_efuse[3], &mac_addr_efuse[4], &mac_addr_efuse[5]);
+        }
+#endif
+
+#endif//CONFIG_PLATFORM_ALLWINNER
+
+#ifdef CONFIG_PLATFORM_ROCKCHIP
+        ret = rockchip_wifi_mac_addr(mac_addr_efuse);
+#endif//CONFIG_PLATFORM_ROCKCHIP
+
+    if(ret == 0){
+        AICWFDBG(LOGINFO, "%s %02x:%02x:%02x:%02x:%02x:%02x", __func__,
+            mac_addr_efuse[0], mac_addr_efuse[1], mac_addr_efuse[2],
+            mac_addr_efuse[3], mac_addr_efuse[4], mac_addr_efuse[5]);
+    }
+    
+    return ret;
+}
+#endif
+
+extern void *aicwf_prealloc_txq_alloc(size_t size);
 int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 {
 	struct rwnx_hw *rwnx_hw;
@@ -6319,6 +6507,7 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	get_random_bytes(&dflt_mac[4], 2);
 
 	/* create a new wiphy for use with cfg80211 */
+    AICWFDBG(LOGINFO, "%s sizeof(struct rwnx_hw):%d \r\n", __func__, (int)sizeof(struct rwnx_hw));
 	wiphy = wiphy_new(&rwnx_cfg80211_ops, sizeof(struct rwnx_hw));
 
 	if (!wiphy) {
@@ -6347,6 +6536,7 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
     rwnx_hw->is_sched_scan = false;
 #endif//CONFIG_SCHED_SCAN
 
+    aicwf_wakeup_lock_init(rwnx_hw);
 	rwnx_init_aic(rwnx_hw);
 	/* set device pointer for wiphy */
 	set_wiphy_dev(wiphy, rwnx_hw->dev);
@@ -6379,6 +6569,10 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 		rwnx_hw->avail_idx_map |= BIT(i);
 
 	rwnx_hwq_init(rwnx_hw);
+    
+#ifdef CONFIG_PREALLOC_TXQ
+        rwnx_hw->txq = (struct rwnx_txq*)aicwf_prealloc_txq_alloc(sizeof(struct rwnx_txq)*NX_NB_TXQ);
+#endif
 
 	for (i = 0; i < NX_NB_TXQ; i++) {
 		rwnx_hw->txq[i].idx = TXQ_INACTIVE;
@@ -6415,20 +6609,23 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 		goto err_lmac_reqs;
 	}
 
+    //ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, feature.hwinfo < 0, feature.hwinfo, 0, &set_start_cfm);
 #ifdef USE_5G
-	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
-			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW){
-	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, 0, 0, &set_start_cfm);
-	} else {
+    if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801) {
 	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, CO_BIT(5), 0, &set_start_cfm);
-	}
+	} 
 #else
-	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80){
-	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, CO_BIT(5), 0, &set_start_cfm);
-	} else {
-	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, feature.hwinfo < 0, feature.hwinfo, 0, &set_start_cfm);
-	}
+    if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801) {
+	    ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, 0, 0, &set_start_cfm);
+	} 
 #endif
+    else if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW){
+		ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, 0, 0, &set_start_cfm);
+        set_start_cfm.is_5g_support = false;
+	} else {
+		ret = rwnx_send_set_stack_start_req(rwnx_hw, 1, 0, CO_BIT(5), 0, &set_start_cfm);
+	}
 
 	if (ret)
 		goto err_lmac_reqs;
@@ -6517,7 +6714,9 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	wiphy->extended_capabilities_len = ARRAY_SIZE(rwnx_hw->ext_capa);
 
 #ifdef CONFIG_SCHED_SCAN
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
     wiphy->max_sched_scan_reqs = 1;
+#endif
     wiphy->max_sched_scan_ssids = SCAN_SSID_MAX;//16;
     wiphy->max_match_sets = SCAN_SSID_MAX;//16;
     wiphy->max_sched_scan_ie_len = 2048;
@@ -6531,28 +6730,24 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	}
 
 
-#if IS_ENABLED(CONFIG_SUNXI_ADDR_MGT)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-	ret = get_custom_mac_address(1, "wifi", mac_addr_efuse);
+#ifdef CONFIG_USE_CUSTOMER_MAC
+    ret = rwnx_get_custom_mac_addr(mac_addr_efuse);
+	if (ret){
+        AICWFDBG(LOGERROR, "%s read mac fail use default mac\r\n", __func__);
+        memcpy(init_conf.mac_addr, dflt_mac, ETH_ALEN);
+    }	
 #else
-	ret = get_wifi_custom_mac_address(addr_str);
-	if (ret >= 0) {
-		sscanf(addr_str, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-				&mac_addr_efuse[0], &mac_addr_efuse[1], &mac_addr_efuse[2],
-				&mac_addr_efuse[3], &mac_addr_efuse[4], &mac_addr_efuse[5]);
-	}
+	ret = rwnx_send_get_macaddr_req(rwnx_hw, (struct mm_get_mac_addr_cfm *)mac_addr_efuse);
+	if (ret)
+		goto err_lmac_reqs;
 #endif
-	if (ret < 0)
-#endif
-	{
-		ret = rwnx_send_get_macaddr_req(rwnx_hw, (struct mm_get_mac_addr_cfm *)mac_addr_efuse);
-		if (ret)
-			goto err_lmac_reqs;
-	}
 
 	if (mac_addr_efuse[0] | mac_addr_efuse[1] | mac_addr_efuse[2] | mac_addr_efuse[3]) {
 		memcpy(init_conf.mac_addr, mac_addr_efuse, ETH_ALEN);
-	}
+	}else{
+        memcpy(init_conf.mac_addr, dflt_mac, ETH_ALEN);
+    }
+
 
 	AICWFDBG(LOGINFO, "get macaddr: %02x:%02x:%02x:%02x:%02x:%02x\r\n",
 			mac_addr_efuse[0], mac_addr_efuse[1], mac_addr_efuse[2],
@@ -6681,6 +6876,7 @@ err_lmac_reqs:
 //err_config:
 	kmem_cache_destroy(rwnx_hw->sw_txhdr_cache);
 err_cache:
+    aicwf_wakeup_lock_deinit(rwnx_hw);
 	wiphy_free(wiphy);
 err_out:
 	return ret;
@@ -6726,6 +6922,7 @@ void rwnx_cfg80211_deinit(struct rwnx_hw *rwnx_hw)
 	rwnx_radar_detection_deinit(&rwnx_hw->radar);
 	rwnx_platform_off(rwnx_hw, NULL);
 	kmem_cache_destroy(rwnx_hw->sw_txhdr_cache);
+    aicwf_wakeup_lock_deinit(rwnx_hw);
 	wiphy_free(rwnx_hw->wiphy);
 }
 

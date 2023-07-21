@@ -7,6 +7,8 @@
 #include <linux/platform_device.h>
 #include "aic_bsp_driver.h"
 #include "rwnx_version_gen.h"
+#include "aicwf_txq_prealloc.h"
+
 
 #define DRV_DESCRIPTION       "AIC BSP"
 #define DRV_COPYRIGHT         "Copyright(c) 2015-2020 AICSemi"
@@ -109,7 +111,7 @@ const struct aicbsp_firmware fw_8800d80_u01[] = {
 		.bt_adid       = "fw_adid_8800d80.bin",
 		.bt_patch      = "fw_patch_8800d80.bin",
 		.bt_table      = "fw_patch_table_8800d80.bin",
-		.wl_fw         = "fmacfw_rf_8800d80.bin"
+		.wl_fw         = "lmacfw_rf_8800d80.bin"
 	},
 };
 
@@ -127,7 +129,7 @@ const struct aicbsp_firmware fw_8800d80_u02[] = {
 		.bt_adid       = "fw_adid_8800d80_u02.bin",
 		.bt_patch      = "fw_patch_8800d80_u02.bin",
 		.bt_table      = "fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "fmacfw_rf_8800d80_u02.bin"
+		.wl_fw         = "lmacfw_rf_8800d80_u02.bin"
 	},
 };
 
@@ -327,16 +329,22 @@ static int __init aicbsp_init(void)
 }
 
 void aicbsp_sdio_exit(void);
+extern struct aic_sdio_dev *aicbsp_sdiodev;
 
 static void __exit aicbsp_exit(void)
 {
 #ifdef CONFIG_PLATFORM_ROCKCHIP
-	aicbsp_sdio_exit();
+    if(aicbsp_sdiodev){
+    	aicbsp_sdio_exit();
+    }
 #endif
 	sysfs_remove_group(&(aicbsp_pdev->dev.kobj), &aicbsp_attribute_group);
 	platform_device_del(aicbsp_pdev);
 	platform_driver_unregister(&aicbsp_driver);
 	mutex_destroy(&aicbsp_power_lock);
+#ifdef CONFIG_PREALLOC_TXQ
+    aicwf_prealloc_txq_free();
+#endif
 	printk("%s\n", __func__);
 }
 

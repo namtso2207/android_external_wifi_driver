@@ -25,6 +25,15 @@ u32 syscfg_tbl_8800dc_sdio_u02[][2] = {
     {0x40030084, 0x0011E800},
     {0x40030080, 0x00000001},
     {0x4010001C, 0x00000000},
+#ifdef CONFIG_OOB
+    {0x40504044, 0x2},//oob_enable
+    {0x40500060, 0x03020700},
+    {0x40500040, 0},
+    {0x40100030, 1},
+    {0x40241020, 1},
+    {0x402400f0, 0x340022},
+#endif //CONFIG_OOB
+
 };
 
 u32 syscfg_tbl_masked_8800dc[][3] = {
@@ -1784,5 +1793,30 @@ void aicwf_patch_config_8800dc(struct aic_sdio_dev *rwnx_hw)
     }
 }
 
+int aicwf_misc_ram_init_8800dc(struct aic_sdio_dev *sdiodev)
+{
+    int ret = 0;
+    const uint32_t cfg_base = 0x10164;
+    struct dbg_mem_read_cfm cfm;
+    uint32_t misc_ram_addr;
+    uint32_t misc_ram_size = 12;
+    int i;
+    // init misc ram
+    ret = rwnx_send_dbg_mem_read_req(sdiodev, cfg_base + 0x14, &cfm);
+    if (ret) {
+        AICWFDBG(LOGERROR, "rf misc ram[0x%x] rd fail: %d\n", cfg_base + 0x14, ret);
+        return ret;
+    }
+    misc_ram_addr = cfm.memdata;
+    AICWFDBG(LOGERROR, "misc_ram_addr=%x\n", misc_ram_addr);
+    for (i = 0; i < (misc_ram_size / 4); i++) {
+        ret = rwnx_send_dbg_mem_write_req(sdiodev, misc_ram_addr + i * 4, 0);
+        if (ret) {
+            AICWFDBG(LOGERROR, "rf misc ram[0x%x] wr fail: %d\n",  misc_ram_addr + i * 4, ret);
+            return ret;
+        }
+    }
+    return ret;
+}
 
 

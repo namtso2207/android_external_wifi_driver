@@ -73,7 +73,7 @@ void aicwf_bus_deinit(struct device *dev)
 		return;
 	}
 	sdio_dbg("%s", __func__);
-	bus_if = dev_get_drvdata(dev);
+	bus_if = aicbsp_get_drvdata(dev);
 	aicwf_bus_stop(bus_if);
 
 	sdiodev = bus_if->bus_priv.sdio;

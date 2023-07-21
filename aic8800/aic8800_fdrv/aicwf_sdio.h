@@ -123,8 +123,9 @@ struct aic_sdio_dev {
 	u16 chipid;
     struct aic_sdio_reg sdio_reg;
 
-	atomic_t irq_sdio_atomic;//AIDEN test
 	spinlock_t wslock;//AIDEN test
+	bool oob_enable;
+    atomic_t is_bus_suspend;
 };
 extern struct aicwf_rx_buff_list aic_rx_buff_list;
 int aicwf_sdio_writeb(struct aic_sdio_dev *sdiodev, uint regaddr, u8 val);

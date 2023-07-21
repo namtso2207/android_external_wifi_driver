@@ -590,10 +590,14 @@ static inline int rwnx_rx_scanu_start_cfm(struct rwnx_hw *rwnx_hw,
 
 #ifdef CONFIG_SCHED_SCAN
     if(rwnx_hw->is_sched_scan){
-        
-        cfg80211_sched_scan_results(rwnx_hw->sched_scan_req->wiphy, 
-            rwnx_hw->sched_scan_req->reqid);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+        AICWFDBG(LOGINFO, "%s cfg80211_sched_scan_results \r\n", __func__);
+        cfg80211_sched_scan_results(rwnx_hw->scan_request->wiphy, 
+                rwnx_hw->sched_scan_req->reqid);
+#else
+        cfg80211_sched_scan_results(rwnx_hw->sched_scan_req->wiphy);
+#endif  
         kfree(rwnx_hw->scan_request);
         rwnx_hw->is_sched_scan = false;
     }
