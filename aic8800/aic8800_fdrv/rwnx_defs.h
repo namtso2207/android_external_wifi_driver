@@ -636,7 +636,7 @@ struct rwnx_hw {
 	struct rwnx_ipc_dbgdump_elem dbgdump_elem;
 	struct rwnx_ipc_elem_pool e2arxdesc_pool;
 	struct rwnx_ipc_skb_elem *e2aunsuprxvec_elems;
-	struct rwnx_ipc_rxbuf_elems rxbuf_elems;
+	//struct rwnx_ipc_rxbuf_elems rxbuf_elems;
 	struct rwnx_ipc_elem_var scan_ie;
 
 	struct kmem_cache      *sw_txhdr_cache;
@@ -644,7 +644,12 @@ struct rwnx_hw {
 	struct rwnx_debugfs     debugfs;
 	struct rwnx_stats       stats;
 
-	struct rwnx_txq txq[NX_NB_TXQ];
+#ifdef CONFIG_PREALLOC_TXQ
+    struct rwnx_txq *txq;
+#else
+    struct rwnx_txq txq[NX_NB_TXQ];
+#endif
+
 	struct rwnx_hwq hwq[NX_TXQ_CNT];
 
 	u8 avail_idx_map;
@@ -676,6 +681,12 @@ struct rwnx_hw {
     struct workqueue_struct *apmStaloss_wq;
     u8 apm_vif_idx;
     u8 sta_mac_addr[6];
+
+    struct wakeup_source *ws_rx;
+    struct wakeup_source *ws_irqrx;
+    struct wakeup_source *ws_tx;
+    struct wakeup_source *ws_pwrctrl;
+
 #ifdef CONFIG_SCHED_SCAN
     bool is_sched_scan;
 #endif//CONFIG_SCHED_SCAN 
@@ -692,7 +703,7 @@ extern u8 chip_id;
 
 static inline bool is_multicast_sta(int sta_idx)
 {
-    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) ||
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC || g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3))
         {
             return (sta_idx >= NX_REMOTE_STA_MAX_FOR_OLD_IC);

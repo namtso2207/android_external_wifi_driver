@@ -43,7 +43,7 @@ extern void set_power_control_lock(int lock);
 static int aicbsp_platform_power_on(void);
 static void aicbsp_platform_power_off(void);
 
-struct aic_sdio_dev *aicbsp_sdiodev;
+struct aic_sdio_dev *aicbsp_sdiodev = NULL;
 static struct semaphore *aicbsp_notify_semaphore;
 static const struct sdio_device_id aicbsp_sdmmc_ids[];
 static bool aicbsp_load_fw_in_fdrv = false;
@@ -51,7 +51,7 @@ static bool aicbsp_load_fw_in_fdrv = false;
 #define FW_PATH_MAX 200
 
 #ifdef CONFIG_PLATFORM_UBUNTU
-static const char* aic_default_fw_path = "/vendor/etc/firmware";
+static const char* aic_default_fw_path = "/lib/firmware/aic8800_sdio";
 #else
 static const char* aic_default_fw_path = CONFIG_AIC_FW_PATH;
 #endif
@@ -234,6 +234,15 @@ static int aicwf_sdio_chipmatch(struct aic_sdio_dev *sdio_dev, uint16_t vid, uin
 	}
 }
 
+void *aicbsp_get_drvdata(void *args)
+{
+	(void)args;
+	if (aicbsp_sdiodev)
+		return aicbsp_sdiodev->bus_if;
+	return dev_get_drvdata((const struct device *)args);
+}
+
+
 static int aicbsp_sdio_probe(struct sdio_func *func,
 	const struct sdio_device_id *id)
 {
@@ -333,16 +342,20 @@ static void aicbsp_sdio_remove(struct sdio_func *func)
 		return;
 	}
 
-	func = aicbsp_sdiodev->func;
-	host = func->card->host;
-	host->caps &= ~MMC_CAP_NONREMOVABLE;
-	bus_if = dev_get_drvdata(&func->dev);
+    bus_if = aicbsp_get_drvdata(&func->dev);
+	
 	if (!bus_if) {
+        AICWFDBG(LOGERROR, "%s bus_if is NULL \r\n", __func__);
 		return;
 	}
 
+	func = aicbsp_sdiodev->func;
+	host = func->card->host;
+	host->caps &= ~MMC_CAP_NONREMOVABLE;
+
 	sdiodev = bus_if->bus_priv.sdio;
 	if (!sdiodev) {
+        AICWFDBG(LOGERROR, "%s sdiodev is NULL \r\n", __func__);
 		return;
 	}
 
@@ -361,6 +374,14 @@ static int aicbsp_sdio_suspend(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	int err;
 	mmc_pm_flag_t sdio_flags;
+    
+#ifdef CONFIG_PLATFORM_ROCKCHIP
+#ifdef CONFIG_GPIO_WAKEUP
+    //BT_SLEEP:true,BT_WAKEUP:false
+    rfkill_rk_sleep_bt(false);
+#endif
+#endif
+
 	sdio_dbg("%s, func->num = %d\n", __func__, func->num);
 	if (func->num != 2)
 		return 0;
@@ -393,13 +414,7 @@ static int aicbsp_sdio_suspend(struct device *dev)
 static int aicbsp_sdio_resume(struct device *dev)
 {
 	sdio_dbg("%s\n", __func__);
-#ifdef CONFIG_PLATFORM_ROCKCHIP
-#ifdef CONFIG_GPIO_WAKEUP
-			//BT_SLEEP:true,BT_WAKEUP:false
-			rfkill_rk_sleep_bt(false);
-			printk("%s BT wake to WAKEUP\r\n", __func__);
-#endif
-#endif
+
 	return 0;
 }
 
@@ -829,7 +844,7 @@ static int aicwf_sdio_intr_get_len_bytemode(struct aic_sdio_dev *sdiodev, u8 *by
 
 static void aicwf_sdio_bus_stop(struct device *dev)
 {
-	struct aicwf_bus *bus_if = dev_get_drvdata(dev);
+	struct aicwf_bus *bus_if = aicbsp_get_drvdata(dev);
 	struct aic_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
 	int ret;
 
@@ -1561,7 +1576,7 @@ void aicwf_sdio_release(struct aic_sdio_dev *sdiodev)
 
 	sdio_dbg("%s\n", __func__);
 
-	bus_if = dev_get_drvdata(sdiodev->dev);
+	bus_if = aicbsp_get_drvdata(sdiodev->dev);
 	bus_if->state = BUS_DOWN_ST;
 
 	sdio_claim_host(sdiodev->func);
@@ -1729,6 +1744,20 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 
 	sdio_claim_host(sdiodev->func);
 	sdiodev->func->card->quirks |= MMC_QUIRK_LENIENT_FN0;
+
+	ret = sdio_set_block_size(sdiodev->func, SDIOWIFI_FUNC_BLOCKSIZE);
+	if (ret < 0) {
+		sdio_err("set blocksize fail %d\n", ret);
+		sdio_release_host(sdiodev->func);
+		return ret;
+	}
+	ret = sdio_enable_func(sdiodev->func);
+	if (ret < 0) {
+        sdio_err("enable func fail %d.\n", ret);
+		sdio_release_host(sdiodev->func);
+		return ret;
+	}
+
     sdio_f0_writeb(sdiodev->func, 0x7F, 0xF2, &ret);
     if (ret) {
         sdio_err("set fn0 0xF2 fail %d\n", ret);
@@ -1754,13 +1783,13 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
         sdio_release_host(sdiodev->func);
         return ret;
     }
-    sdio_f0_writeb(sdiodev->func, 0x20, 0xF1, &ret);
+    sdio_f0_writeb(sdiodev->func, 0x40, 0xF1, &ret);
     if (ret) {
         sdio_err("set iopad delay1 fail %d\n", ret);
         sdio_release_host(sdiodev->func);
         return ret;
     }
-    udelay(100);
+    msleep(1);
 #if 1//SDIO CLOCK SETTING
 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
 		host->ios.clock = feature.sdio_clock;
@@ -1769,19 +1798,6 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 	}
 #endif
 #endif
-	sdio_dbg("##### Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
-	ret = sdio_set_block_size(sdiodev->func, SDIOWIFI_FUNC_BLOCKSIZE);
-	if (ret < 0) {
-		sdio_err("set blocksize fail %d\n", ret);
-		sdio_release_host(sdiodev->func);
-		return ret;
-	}
-	ret = sdio_enable_func(sdiodev->func);
-	if (ret < 0) {
-        sdio_err("enable func fail %d.\n", ret);
-		sdio_release_host(sdiodev->func);
-		return ret;
-	}
 	sdio_release_host(sdiodev->func);
 
 	//1: no byte mode

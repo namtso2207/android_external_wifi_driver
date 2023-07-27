@@ -432,6 +432,7 @@ enum chip_rev {
 ///pwr lvl:20(min), 30 , 40 , 50 , 60(max)
 #define AICBT_TXPWR_LVL            0x00006020
 #define AICBT_TXPWR_LVL_8800dc            0x00006f2f
+#define AICBT_TXPWR_LVL_8800d80           0x00006f2f
 
 #define AICBSP_HWINFO_DEFAULT       (-1)
 #define AICBSP_CPMODE_DEFAULT       AICBSP_CPMODE_WORK

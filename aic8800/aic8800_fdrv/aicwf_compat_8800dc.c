@@ -5,6 +5,8 @@
 #define RWNX_MAC_RF_PATCH_BASE_NAME_8800DC     "fmacfw_rf_patch_8800dc"
 #define RWNX_MAC_RF_PATCH_NAME_8800DC RWNX_MAC_RF_PATCH_BASE_NAME_8800DC".bin"
 #define FW_USERCONFIG_NAME_8800DC         "aic_userconfig_8800dc.txt"
+#define FW_USERCONFIG_NAME_8800DW         "aic_userconfig_8800dw.txt"
+
 
 int rwnx_plat_bin_fw_upload_2(struct rwnx_hw *rwnx_hw, u32 fw_addr,
                                char *filename);
@@ -280,4 +282,30 @@ int	rwnx_plat_userconfig_load_8800dc(struct rwnx_hw *rwnx_hw){
 
 }
 
+int	rwnx_plat_userconfig_load_8800dw(struct rwnx_hw *rwnx_hw){
+    int size;
+    u32 *dst=NULL;
+    char *filename = FW_USERCONFIG_NAME_8800DC;
+
+    AICWFDBG(LOGINFO, "userconfig file path:%s \r\n", filename);
+
+    /* load file */
+    size = rwnx_request_firmware_common(rwnx_hw, &dst, filename);
+    if (size <= 0) {
+            AICWFDBG(LOGERROR, "wrong size of firmware file\n");
+            dst = NULL;
+            return 0;
+    }
+
+	/* Copy the file on the Embedded side */
+    AICWFDBG(LOGINFO, "### Load file done: %s, size=%d\n", filename, size);
+
+	rwnx_plat_userconfig_parsing2((char *)dst, size);
+
+    rwnx_release_firmware_common(&dst);
+
+    AICWFDBG(LOGINFO, "userconfig download complete\n\n");
+    return 0;
+
+}
 

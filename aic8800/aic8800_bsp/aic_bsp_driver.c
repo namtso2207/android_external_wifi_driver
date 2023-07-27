@@ -534,11 +534,11 @@ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
 	#ifdef CONFIG_FIRMWARE_ARRAY
 		size = aicwf_get_firmware_array((char*)name, fw_buf);
 		printk("%s size:%d \r\n", __func__, size);
-		MD5Init(&md5);         		
+		MD5Init(&md5);
 		MD5Update(&md5, (unsigned char *)*fw_buf, size);
 		MD5Final(&md5, decrypt);
 		printk(MD5PINRT, MD5(decrypt));
-		
+
 		return size;
 	#endif
 
@@ -585,7 +585,7 @@ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
 
 	/* start to read from firmware file */
 	buffer = vmalloc(size);
-	
+
 	if (!buffer) {
 		*fw_buf = NULL;
 		__putname(path);
@@ -595,7 +595,7 @@ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
 	}else{
 		memset(buffer, 0, size);
 	}
-	
+
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 13, 16)
 	rdlen = kernel_read(fp, buffer, size, &fp->f_pos);
 #else
@@ -619,7 +619,7 @@ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
 	/*start to transform the data format*/
 	src = (u32 *)buffer;
 	dst = (u32 *)vmalloc(size);
-	
+
 	if (!dst) {
 		*fw_buf = NULL;
 		__putname(path);
@@ -643,7 +643,7 @@ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
 	buffer = NULL;
 	*fw_buf = dst;
 
-	MD5Init(&md5);         		
+	MD5Init(&md5);
 	MD5Update(&md5, (unsigned char *)dst, size);
 	MD5Final(&md5, decrypt);
 
@@ -755,6 +755,9 @@ static int rwnx_plat_patch_load(struct aic_sdio_dev *sdiodev)
 
 	if(sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		sdiodev->chipid == PRODUCT_ID_AIC8800DW){
+        #if !defined(CONFIG_DPD)
+        aicwf_misc_ram_init_8800dc(sdiodev);
+        #endif
 		printk("rwnx_plat_patch_loading\n");
 		ret = aicwf_plat_patch_load_8800dc(sdiodev);
 	}
@@ -896,7 +899,7 @@ int aicbt_patch_info_unpack(struct aicbt_patch_info_t *patch_info, struct aicbt_
         patch_info->info_len = head_t->len;
         if(patch_info->info_len == 0)
             return 0;
-        memcpy(&patch_info->adid_addrinf, head_t->data, patch_info->info_len * sizeof(uint32_t));
+        memcpy(&patch_info->adid_addrinf, head_t->data, patch_info->info_len * sizeof(uint32_t) * 2);
     }
     return 0;
 }
@@ -943,7 +946,7 @@ int aicbt_patch_trap_data_load(struct aic_sdio_dev *sdiodev, struct aicbt_patch_
         if (aicbsp_info.chip_rev == CHIP_REV_U01) {
 		    patch_info.addr_adid = FW_RAM_ADID_BASE_ADDR_8800D80;
 		    patch_info.addr_patch = FW_RAM_PATCH_BASE_ADDR_8800D80;
-        } else if (aicbsp_info.chip_rev == CHIP_REV_U02) {
+        } else if (aicbsp_info.chip_rev == CHIP_REV_U02 || aicbsp_info.chip_rev == CHIP_REV_U03) {
             patch_info.addr_adid = FW_RAM_ADID_BASE_ADDR_8800D80_U02;
 		    patch_info.addr_patch = FW_RAM_PATCH_BASE_ADDR_8800D80_U02;
         }
@@ -990,7 +993,8 @@ int aicbt_patch_table_load(struct aic_sdio_dev *sdiodev, struct aicbt_patch_tabl
     }
 	if(sdiodev->chipid == PRODUCT_ID_AIC8801 || sdiodev->chipid == PRODUCT_ID_AIC8800D80){
         if (sdiodev->chipid == PRODUCT_ID_AIC8800D80) {
-            aicbt_info.btmode = AICBT_BTMODE_BT_ONLY_COANT;
+            //aicbt_info.btmode = AICBT_BTMODE_BT_ONLY_COANT;
+            aicbt_info.txpwr_lvl = AICBT_TXPWR_LVL_8800d80;
         }
 		for (p = head; p != NULL; p = p->next) {
 			data = p->data;
@@ -1005,7 +1009,7 @@ int aicbt_patch_table_load(struct aic_sdio_dev *sdiodev, struct aicbt_patch_tabl
 				*(data + 13) = aicbt_info.uart_flowctrl;
 				*(data + 15) = aicbt_info.lpm_enable;
 				*(data + 17) = aicbt_info.txpwr_lvl;
-                
+
                 		printk("%s bt btmode:%d \r\n", __func__, aicbt_info.btmode);
 				printk("%s bt uart_baud:%d \r\n", __func__, aicbt_info.uart_baud);
 				printk("%s bt uart_flowctrl:%d \r\n", __func__, aicbt_info.uart_flowctrl);
@@ -1262,14 +1266,14 @@ static int aicwifi_patch_config(struct aic_sdio_dev *sdiodev)
 	}
 
 	tmp_cnt = cnt;
-	
+
 	if(adap_test){
 		for(cnt = 0; cnt < adap_patch_num/2; cnt+=1)
 		{
 			if((ret = rwnx_send_dbg_mem_write_req(sdiodev, start_addr+8*(cnt+tmp_cnt), adaptivity_patch_tbl[cnt][0]+config_base))) {
 				printk("%x write fail\n", start_addr+8*cnt);
 			}
-		
+
 			if((ret = rwnx_send_dbg_mem_write_req(sdiodev, start_addr+8*(cnt+tmp_cnt)+4, adaptivity_patch_tbl[cnt][1]))) {
 				printk("%x write fail\n", start_addr+8*cnt+4);
 			}
@@ -1398,13 +1402,13 @@ int aicbsp_driver_fw_init(struct aic_sdio_dev *sdiodev)
 	u32 mem_addr;
 	struct dbg_mem_read_cfm rd_mem_addr_cfm;
 	u32 btenable = 0;
-	
+
 	mem_addr = 0x40500000;
 
 	testmode = aicbsp_info.cpmode;
 
 	if(sdiodev->chipid == PRODUCT_ID_AIC8801){
-		
+
 		if (rwnx_send_dbg_mem_read_req(sdiodev, mem_addr, &rd_mem_addr_cfm))
 			return -1;
 
@@ -1452,7 +1456,7 @@ int aicbsp_driver_fw_init(struct aic_sdio_dev *sdiodev)
 		}
 	}
     else if(sdiodev->chipid == PRODUCT_ID_AIC8800D80){
-		
+
 		if (rwnx_send_dbg_mem_read_req(sdiodev, mem_addr, &rd_mem_addr_cfm))
 			return -1;
 
@@ -1466,7 +1470,7 @@ int aicbsp_driver_fw_init(struct aic_sdio_dev *sdiodev)
         if (aicbsp_system_config_8800d80(sdiodev))
             return -1;
 	}
-	
+
 	AICWFDBG(LOGINFO, "aicbsp: %s, chip rev: %d\n", __func__, aicbsp_info.chip_rev);
 
 	#ifndef CONFIG_MCU_MESSAGE
@@ -1484,7 +1488,7 @@ int aicbsp_driver_fw_init(struct aic_sdio_dev *sdiodev)
 
 int aicbsp_get_feature(struct aicbsp_feature_t *feature, char *fw_path)
 {
-	if (aicbsp_sdiodev->chipid == PRODUCT_ID_AIC8801 || 
+	if (aicbsp_sdiodev->chipid == PRODUCT_ID_AIC8801 ||
         aicbsp_sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
         aicbsp_sdiodev->chipid == PRODUCT_ID_AIC8800DW){
 	    feature->sdio_clock = FEATURE_SDIO_CLOCK;

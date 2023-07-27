@@ -18,6 +18,7 @@ extern u8 chip_mcu_id;
 
 void aicwf_patch_config_8800dc(struct          aic_sdio_dev *rwnx_hw);
 void system_config_8800dc(struct aic_sdio_dev *rwnx_hw);
+int aicwf_misc_ram_init_8800dc(struct aic_sdio_dev *sdiodev);
 
 
 #endif

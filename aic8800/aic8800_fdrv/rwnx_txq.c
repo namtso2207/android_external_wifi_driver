@@ -23,7 +23,6 @@ static inline int rwnx_txq_sta_idx(struct rwnx_sta *sta, u8 tid)
 {
 	if (is_multicast_sta(sta->sta_idx)){
         if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
-            (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) || 
 			((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 			g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 			    return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + sta->vif_idx;
@@ -39,7 +38,6 @@ static inline int rwnx_txq_vif_idx(struct rwnx_vif *vif, u8 type)
 {
 
 	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + master_vif_idx(vif) + (type * NX_VIRT_DEV_MAX);
@@ -102,7 +100,6 @@ static void rwnx_txq_init(struct rwnx_txq *txq, int idx, u8 status,
     int nx_first_vif_txq_idx = NX_FIRST_VIF_TXQ_IDX;
 
     if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_first_unk_txq_idx = NX_FIRST_UNK_TXQ_IDX_FOR_OLD_IC;
@@ -350,7 +347,6 @@ void rwnx_txq_offchan_init(struct rwnx_vif *rwnx_vif)
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
 	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC || 
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
@@ -376,7 +372,6 @@ void rwnx_txq_offchan_deinit(struct rwnx_vif *rwnx_vif)
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
 	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC || 
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
@@ -753,7 +748,6 @@ void rwnx_txq_offchan_start(struct rwnx_hw *rwnx_hw)
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
 	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
-        (g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800D80) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
             nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
@@ -854,6 +848,7 @@ int rwnx_txq_queue_skb(struct sk_buff *skb, struct rwnx_txq *txq,
 #endif
 	/* Flowctrl corresponding netdev queue if needed */
 #ifdef CONFIG_RWNX_FULLMAC
+#ifndef CONFIG_ONE_TXQ
 	/* If too many buffer are queued for this TXQ stop netdev queue */
 	if ((txq->ndev_idx != NDEV_NO_TXQ) &&
 		(skb_queue_len(&txq->sk_list) > RWNX_NDEV_FLOW_CTRL_STOP)) {
@@ -863,6 +858,7 @@ int rwnx_txq_queue_skb(struct sk_buff *skb, struct rwnx_txq *txq,
 		trace_txq_flowctrl_stop(txq);
 #endif
 	}
+#endif /* CONFIG_ONE_TXQ */
 #else /* ! CONFIG_RWNX_FULLMAC */
 
 	if (!retry && ++txq->hwq->len == txq->hwq->len_stop) {
@@ -1288,7 +1284,7 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
 			}
 			/* for u-apsd need to complete the SP to send EOSP frame */
 		}
-
+#ifndef CONFIG_ONE_TXQ
 		/* restart netdev queue if number of queued buffer is below threshold */
 		if (unlikely(txq->status & RWNX_TXQ_NDEV_FLOW_CTRL) &&
 			skb_queue_len(&txq->sk_list) < RWNX_NDEV_FLOW_CTRL_RESTART) {
@@ -1298,6 +1294,7 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
 			trace_txq_flowctrl_restart(txq);
 #endif
 		}
+#endif /* CONFIG_ONE_TXQ */
 #endif /* CONFIG_RWNX_FULLMAC */
 	}
 

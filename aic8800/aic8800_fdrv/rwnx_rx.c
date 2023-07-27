@@ -405,7 +405,9 @@ static void rwnx_rx_data_skb_forward(struct rwnx_hw *rwnx_hw, struct rwnx_vif *r
 	memset(rx_skb->cb, 0, sizeof(rx_skb->cb));
 	REG_SW_SET_PROFILING(rwnx_hw, SW_PROF_IEEE80211RX);
 	#ifdef CONFIG_RX_NETIF_RECV_SKB //modify by aic
+	local_bh_disable();
 	netif_receive_skb(rx_skb);
+	local_bh_enable();
 	#else
 	if (in_interrupt()) {
 		netif_rx(rx_skb);
@@ -570,7 +572,9 @@ static bool rwnx_rx_data_skb(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 			memset(rx_skb->cb, 0, sizeof(rx_skb->cb));
             REG_SW_SET_PROFILING(rwnx_hw, SW_PROF_IEEE80211RX);
             #ifdef CONFIG_RX_NETIF_RECV_SKB //modify by aic
+            local_bh_disable();
 			netif_receive_skb(rx_skb);
+            local_bh_enable();
 			#else
 			if (in_interrupt()) {
 				netif_rx(rx_skb);
@@ -1202,8 +1206,10 @@ static int rwnx_rx_monitor(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	skb->pkt_type = PACKET_OTHERHOST;
 	skb->protocol = htons(ETH_P_802_2);
-
+    
+    local_bh_disable();
 	netif_receive_skb(skb);
+    local_bh_enable();
 
 	return 0;
 }
@@ -1475,7 +1481,9 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
     memset(skb->cb, 0, sizeof(skb->cb));
 
 #ifdef CONFIG_RX_NETIF_RECV_SKB//AIDEN test
+    local_bh_disable();
 	netif_receive_skb(skb);
+    local_bh_enable();
 #else
     if (in_interrupt()) {
         netif_rx(skb);
@@ -1495,8 +1503,8 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 #endif
     }
 #endif//CONFIG_RX_NETIF_RECV_SKB
-    rwnx_vif->net_stats.rx_packets++;
-    rwnx_vif->net_stats.rx_bytes += skb->len;
+    //rwnx_vif->net_stats.rx_packets++;
+    //rwnx_vif->net_stats.rx_bytes += skb->len;
     prframe->pkt = NULL;
     reord_rxframe_free(&rx_priv->freeq_lock, rxframes_freequeue, &prframe->rxframe_list);
 
@@ -1582,11 +1590,14 @@ void reord_timeout_handler (struct timer_list *t)
 #else
 	struct reord_ctrl *preorder_ctrl = from_timer(preorder_ctrl, t, reord_timer);
 #endif
+
+#if 0 //AIDEN
 	struct aicwf_rx_priv *rx_priv = preorder_ctrl->rx_priv;
 
 	if (reord_rxframes_process(rx_priv, preorder_ctrl, true) == true) {
 		mod_timer(&preorder_ctrl->reord_timer, jiffies + msecs_to_jiffies(REORDER_UPDATE_TIME));
 	}
+#endif
 
 	if (!work_pending(&preorder_ctrl->reord_timer_work))
 		schedule_work(&preorder_ctrl->reord_timer_work);
@@ -1682,9 +1693,11 @@ int reord_process_unit(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u16 s
 	spin_unlock_bh(&rx_priv->stas_reord_lock);
 
 	if (preorder_ctrl->enable == false) {
+        spin_lock_bh(&preorder_ctrl->reord_list_lock);
 		preorder_ctrl->ind_sn = pframe->seq_num;
 		reord_single_frame_ind(rx_priv, pframe);
 		preorder_ctrl->ind_sn = (preorder_ctrl->ind_sn + 1)%4096;
+        spin_unlock_bh(&rx_priv->stas_reord_lock);
 		return 0;
 	}
 

@@ -206,7 +206,6 @@ static int rwnx_plat_tl4_fw_upload(struct rwnx_plat *rwnx_plat, u8 *fw_addr,
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 #endif
 
-
 #if 0
 /**
  * rwnx_plat_bin_fw_upload() - Load the requested binary FW into embedded side.
@@ -1770,10 +1769,11 @@ static int rwnx_plat_userconfig_load(struct rwnx_hw *rwnx_hw) {
 	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801){
 		
 		rwnx_plat_userconfig_upload_android(rwnx_hw, aic_fw_path, FW_USERCONFIG_NAME);
-	}else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
-		rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW){
+	}else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC){
 		rwnx_plat_userconfig_load_8800dc(rwnx_hw);
-	}else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80){
+	}else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW){
+        rwnx_plat_userconfig_load_8800dw(rwnx_hw);
+    }else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80){
 		rwnx_plat_userconfig_load_8800d80(rwnx_hw);
 	}
 	return 0;

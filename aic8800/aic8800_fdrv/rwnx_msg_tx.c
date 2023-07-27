@@ -21,6 +21,7 @@
 #include "aicwf_txrxif.h"
 #include "rwnx_strs.h"
 #include "rwnx_main.h"
+#include "rwnx_wakelock.h"
 
 const struct mac_addr mac_addr_bcst = {{0xFFFF, 0xFFFF, 0xFFFF}};
 
@@ -293,8 +294,8 @@ static void rwnx_msg_free(struct rwnx_hw *rwnx_hw, const void *msg_params)
 	kfree(msg);
 }
 
-void rwnx_pm_relax(struct aic_sdio_dev *sdiodev);
-void rwnx_pm_stay_awake(struct aic_sdio_dev *sdiodev);
+//void rwnx_pm_relax(struct aic_sdio_dev *sdiodev);
+//void rwnx_pm_stay_awake(struct aic_sdio_dev *sdiodev);
 
 static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
 						 int reqcfm, lmac_msg_id_t reqid, void *cfm)
@@ -318,11 +319,11 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
 	}
 #endif
 #ifdef AICWF_SDIO_SUPPORT
-	rwnx_pm_stay_awake(rwnx_hw->sdiodev);
+	rwnx_wakeup_lock(rwnx_hw->ws_tx);
 	if (rwnx_hw->sdiodev->bus_if->state == BUS_DOWN_ST) {
 		rwnx_msg_free(rwnx_hw, msg_params);
 		sdio_err("bus is down\n");
-		rwnx_pm_relax(rwnx_hw->sdiodev);
+		rwnx_wakeup_unlock(rwnx_hw->ws_tx);
 		return 0;
 	}
 #endif
@@ -399,7 +400,7 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
 	if (!reqcfm || ret)
 		rwnx_cmd_free(cmd);//kfree(cmd);
 
-	rwnx_pm_relax(rwnx_hw->sdiodev);
+	rwnx_wakeup_unlock(rwnx_hw->ws_tx);
 	return 0;
 }
 
@@ -416,7 +417,7 @@ static int rwnx_send_msg1(struct rwnx_hw *rwnx_hw, const void *msg_params,
     printk("%s (%d)%s reqcfm:%d in_irq:%d in_softirq:%d in_atomic:%d\r\n",
     __func__, reqid, RWNX_ID2STR(reqid), reqcfm, (int)in_irq(), (int)in_softirq(), (int)in_atomic());
 
-	rwnx_pm_stay_awake(rwnx_hw->sdiodev);
+	rwnx_wakeup_lock(rwnx_hw->ws_tx);
 	msg = container_of((void *)msg_params, struct lmac_msg, param);
 
 	//nonblock = is_non_blocking_msg(msg->id);
@@ -446,7 +447,7 @@ static int rwnx_send_msg1(struct rwnx_hw *rwnx_hw, const void *msg_params,
 	if (!ret)
 		ret = cmd->result;
 
-	rwnx_pm_relax(rwnx_hw->sdiodev);
+	rwnx_wakeup_unlock(rwnx_hw->ws_tx);
 	//return ret;
 	return 0;
 }
