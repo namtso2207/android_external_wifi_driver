@@ -17,6 +17,7 @@ CONFIG_FIRMWARE_ARRAY = n
 # Need to set fw path in BOARD_KERNEL_CMDLINE
 CONFIG_USE_FW_REQUEST = n
 CONFIG_FDRV_NO_REG_SDIO = n
+CONFIG_VRF_DCDC_MODE = y
 
 ccflags-$(CONFIG_GPIO_WAKEUP) += -DCONFIG_GPIO_WAKEUP
 ccflags-$(CONFIG_LINK_DET_5G) += -DCONFIG_LINK_DET_5G
@@ -24,7 +25,7 @@ ccflags-$(CONFIG_MCU_MESSAGE) += -DCONFIG_MCU_MESSAGE
 ccflags-$(CONFIG_FIRMWARE_ARRAY) += -DCONFIG_FIRMWARE_ARRAY
 ccflags-$(CONFIG_USE_FW_REQUEST) += -DCONFIG_USE_FW_REQUEST
 ccflags-$(CONFIG_FDRV_NO_REG_SDIO) += -DCONFIG_FDRV_NO_REG_SDIO
-
+ccflags-$(CONFIG_VRF_DCDC_MODE) += -DCONFIG_VRF_DCDC_MODE
 
 obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-y := \
@@ -61,10 +62,17 @@ ccflags-$(CONFIG_PLATFORM_ROCKCHIP) += -DCONFIG_PLATFORM_ROCKCHIP
 #KDIR  ?= /home/yaya/E/Rockchip/3229/Android9/rk3229_android9.0_box/kernel
 #ARCH ?= arm
 #CROSS_COMPILE ?= /home/yaya/E/Rockchip/3229/Android9/rk3229_android9.0_box/prebuilts/gcc/linux-x86/arm/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+#KDIR ?= /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/kernel
+#KDIR ?= /home/yaya/E/Rockchip/3566/oudu/kernel
+#KDIR ?= /home/yaya/E/Rockchip/3566/shengteng/kernel
+#ARCH ?= arm64
+#CROSS_COMPILE ?= ~/E/Rockchip/3566/Android11/rk3566_rk3568_android11_oranth/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+#KDIR ?= /home/yaya/E/Rockchip/3328/Android9/SDK/kernel/
+#ARCH ?= arm64
+#CROSS_COMPILE ?= /home/yaya/E/Rockchip/3328/Android9/SDK/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
 KDIR ?= /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/kernel
 ARCH ?= arm64
 CROSS_COMPILE ?= /home/yaya/E/Rockchip/3566/Android11/rk3566_rk3568_android11_oranth/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
-
 endif
 
 ifeq ($(CONFIG_PLATFORM_ALLWINNER), y)

@@ -572,7 +572,11 @@ static inline int rwnx_rx_scanu_start_cfm(struct rwnx_hw *rwnx_hw,
 {
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
 
-	if (rwnx_hw->scan_request) {
+	if (rwnx_hw->scan_request
+#ifdef CONFIG_SCHED_SCAN
+        && !rwnx_hw->is_sched_scan
+#endif//CONFIG_SCHED_SCAN
+        ) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
 		struct cfg80211_scan_info info = {
 			.aborted = false,
@@ -583,6 +587,17 @@ static inline int rwnx_rx_scanu_start_cfm(struct rwnx_hw *rwnx_hw,
 		cfg80211_scan_done(rwnx_hw->scan_request, false);
 #endif
 	}
+
+#ifdef CONFIG_SCHED_SCAN
+    if(rwnx_hw->is_sched_scan){
+        
+        cfg80211_sched_scan_results(rwnx_hw->sched_scan_req->wiphy, 
+            rwnx_hw->sched_scan_req->reqid);
+
+        kfree(rwnx_hw->scan_request);
+        rwnx_hw->is_sched_scan = false;
+    }
+#endif//CONFIG_SCHED_SCAN
 
 	rwnx_hw->scan_request = NULL;
 	scanning = 0;

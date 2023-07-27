@@ -35,6 +35,7 @@ u32 syscfg_tbl_masked_8800dc[][3] = {
     {0x70002118, ((0x7 << 4) | (0x1 << 7)), ((0x2 << 4) | (0x1 << 7))},
     {0x70002104, ((0x3F << 0) | (0x1 << 6)), ((0x2 << 0) | (0x1 << 6))},
     {0x7000210C, ((0x3F << 0) | (0x1 << 6)), ((0x2 << 0) | (0x1 << 6))},
+    {0x70002170, (0xF << 0), (0x1 << 0)},
     {0x70002190, (0x3F << 0), (24 << 0)},
     {0x700021CC, ((0x7 << 4) | (0x1 << 7)), ((0x0 << 4) | (0x0 << 7))},
     {0x700010A0, (0x1 << 11), (0x1 << 11)},
@@ -74,7 +75,7 @@ u32 patch_tbl_wifisetting_8800dc_u02[][2] =
 
 
 uint32_t ldpc_cfg_ram[] = {
-    #ifdef CONFIG_FPGA_VERIFICATION
+#if 0//def CONFIG_FPGA_VERIFICATION
     0x00363638,
     0x1DF8F834,
     0x1DF8F834,
@@ -410,7 +411,7 @@ uint32_t ldpc_cfg_ram[] = {
     0x0213130F,
     0x02131308,
     0x02131308
-    #else
+#else
     0x00767679,
     0x1DF8F870,
     0x1DF8F870,
@@ -746,7 +747,7 @@ uint32_t ldpc_cfg_ram[] = {
     0x084C4C2C,
     0x084C4C19,
     0x084C4C19
-    #endif
+#endif
 };
 
 uint32_t agc_cfg_ram[] = {
@@ -1266,7 +1267,7 @@ uint32_t agc_cfg_ram[] = {
 
 
 uint32_t txgain_map[96] =  {
-    #ifdef CONFIG_FPGA_VERIFICATION
+#ifdef CONFIG_FPGA_VERIFICATION
     0x20c0c971,
     0x20c0c980,
     0x20c0c992,
@@ -1363,55 +1364,57 @@ uint32_t txgain_map[96] =  {
     0x20c0cba8,
     0x20c0cbbb,
     0x20c0cbd2,
-    #else
-    0x00ffc772,
-    0x00ffc780,
-    0x00ffc872,
-    0x00ffc880,
-    0x00ffc970,
-    0x00ffc980,
-    0x00ffc990,
-    0x00ffca80,
-    0x00ffca9a,
-    0x00ffcb90,
-    0x00ffcc95,
-    0x00ffce80,
-    0x00ffcf80,
-    0x00ffcf80,
-    0x00ffcf80,
-    0x00ffcf80,
-    0x00ffc05b,
-    0x00ffc066,
-    0x00ffc070,
-    0x00ffc080,
-    0x00ffc175,
-    0x00ffc185,
-    0x00ffc272,
-    0x00ffc280,
-    0x00ffc290,
-    0x00ffc380,
-    0x00ffc472,
-    0x00ffc483,
-    0x00ffc572,
-    0x00ffc580,
-    0x00ffc590,
-    0x00ffc680,
+#else
+    //11b
+    0x00ffd780,
+    0x00ffd872,
+    0x00ffd880,
+    0x00ffd972,
+    0x00ffd980,
+    0x00ffda75,
+    0x00ffda86,
+    0x00ffdb77,
+    0x00ffdb86,
+    0x00ffdc78,
+    0x00ffdc89,
+    0x00ffdd79,
+    0x00ffdd89,
+    0x00ffde83,
+    0x00ffdf79,
+    0x00ffdf8b,
+    0x00ffd072,
+    0x00ffd072,
+    0x00ffd080,
+    0x00ffd172,
+    0x00ffd180,
+    0x00ffd272,
+    0x00ffd280,
+    0x00ffd36d,
+    0x00ffd379,
+    0x00ffd46d,
+    0x00ffd479,
+    0x00ffd572,
+    0x00ffd580,
+    0x00ffd672,
+    0x00ffd680,
+    0x00ffd772,
+    //high
     0x00ffc87d,
     0x00ffc88b,
     0x00ffc979,
     0x00ffc989,
     0x00ffca7d,
-    0x00ffca8d,
-    0x00ffcb7a,
-    0x00ffcb8a,
-    0x00ffcc7d,
-    0x00ffcc8d,
-    0x00ffcd79,
-    0x00ffcd89,
-    0x00ffce7d,
-    0x00ffce8d,
-    0x00ffcf80,
-    0x00ffcf99,
+    0x00ffca88,
+    0x00ffcc5e,
+    0x00ffcc69,
+    0x00ffcc78,
+    0x00ffcc85,
+    0x00ffcd70,
+    0x00ffcd80,
+    0x00ffce70,
+    0x00ffce80,
+    0x00ffcf7d,
+    0x00ffcf90,
     0x00ffc080,
     0x00ffc090,
     0x00ffc180,
@@ -1419,31 +1422,32 @@ uint32_t txgain_map[96] =  {
     0x00ffc27b,
     0x00ffc28b,
     0x00ffc37b,
-    0x00ffc38b,
-    0x00ffc480,
-    0x00ffc490,
+    0x00ffc390,
+    0x00ffc485,
+    0x00ffc495,
     0x00ffc579,
     0x00ffc589,
     0x00ffc679,
     0x00ffc689,
     0x00ffc780,
     0x00ffc790,
+    //low
     0x00ffc87d,
     0x00ffc88b,
     0x00ffc979,
     0x00ffc989,
     0x00ffca7d,
-    0x00ffca8d,
-    0x00ffcb7a,
-    0x00ffcb8a,
-    0x00ffcc7d,
-    0x00ffcc8d,
-    0x00ffcd79,
-    0x00ffcd89,
-    0x00ffce7d,
-    0x00ffce8d,
-    0x00ffcf80,
-    0x00ffcf99,
+    0x00ffca88,
+    0x00ffcc5e,
+    0x00ffcc69,
+    0x00ffcc78,
+    0x00ffcc85,
+    0x00ffcd70,
+    0x00ffcd80,
+    0x00ffce70,
+    0x00ffce80,
+    0x00ffce93,
+    0x00ffcf90,
     0x00ffc080,
     0x00ffc090,
     0x00ffc180,
@@ -1451,16 +1455,16 @@ uint32_t txgain_map[96] =  {
     0x00ffc27b,
     0x00ffc28b,
     0x00ffc37b,
-    0x00ffc38b,
-    0x00ffc480,
-    0x00ffc490,
+    0x00ffc390,
+    0x00ffc485,
+    0x00ffc495,
     0x00ffc579,
     0x00ffc589,
     0x00ffc679,
     0x00ffc689,
     0x00ffc780,
-    0x00ffc790
-    #endif
+    0x00ffc790,
+#endif
 };
 
 
@@ -1683,7 +1687,7 @@ void aicwf_patch_config_8800dc(struct aic_sdio_dev *rwnx_hw)
 	        }
 	        jump_tbl_addr = cfm.memdata;
 		}
-		
+
         if ((ret = rwnx_send_dbg_mem_read_req(rwnx_hw, cfg_base + 8, &cfm))) {
             AICWFDBG(LOGERROR, "setting base[0x%x] rd fail: %d\n", cfg_base + 8, ret);
         }
@@ -1766,7 +1770,7 @@ void aicwf_patch_config_8800dc(struct aic_sdio_dev *rwnx_hw)
 			       printk("patch_tbl upload fail: err:%d\r\n", ret);
 			}
 		}
-		
+
         #endif
     } else {
         if (chip_sub_id == 0) {

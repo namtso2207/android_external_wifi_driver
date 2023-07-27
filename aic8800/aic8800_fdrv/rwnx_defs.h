@@ -594,6 +594,9 @@ struct rwnx_hw {
 #endif
 	struct rwnx_survey_info survey[SCAN_CHANNEL_MAX];
 	struct cfg80211_scan_request *scan_request;
+#ifdef CONFIG_SCHED_SCAN
+    struct cfg80211_sched_scan_request *sched_scan_req;
+#endif
 	struct rwnx_chanctx chanctx_table[NX_CHAN_CTXT_CNT];
 	u8 cur_chanctx;
 
@@ -673,6 +676,9 @@ struct rwnx_hw {
     struct workqueue_struct *apmStaloss_wq;
     u8 apm_vif_idx;
     u8 sta_mac_addr[6];
+#ifdef CONFIG_SCHED_SCAN
+    bool is_sched_scan;
+#endif//CONFIG_SCHED_SCAN 
 };
 
 u8 *rwnx_build_bcn(struct rwnx_bcn *bcn, struct cfg80211_beacon_data *new);

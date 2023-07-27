@@ -88,6 +88,7 @@ CONFIG_USE_P2P0=n
 CONFIG_BR_SUPPORT =n
 BR_NAME = br0
 CONFIG_FDRV_NO_REG_SDIO=n
+CONFIG_SCHED_SCAN = y
 
 
 # Support of MU-MIMO transmission (need FW support)
@@ -220,7 +221,10 @@ ccflags-$(CONFIG_WIFI_SUSPEND_FOR_LINUX) += -DCONFIG_WIFI_SUSPEND_FOR_LINUX
 ccflags-$(CONFIG_USE_FW_REQUEST) += -DCONFIG_USE_FW_REQUEST
 ccflags-$(CONFIG_USE_P2P0) += -DCONFIG_USE_P2P0
 ccflags-$(CONFIG_FDRV_NO_REG_SDIO) += -DCONFIG_FDRV_NO_REG_SDIO
+ccflags-$(CONFIG_SCHED_SCAN) += -DCONFIG_SCHED_SCAN
 
+
+ccflags-y += -Wno-tautological-pointer-compare
 
 ifeq ($(CONFIG_SDIO_SUPPORT), y)
 ccflags-y += -DAICWF_SDIO_SUPPORT

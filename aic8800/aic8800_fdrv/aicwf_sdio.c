@@ -560,7 +560,7 @@ static int aicwf_sdio_probe(struct sdio_func *func,
 		return err;
 
 #ifdef CONFIG_GPIO_WAKEUP
-	rwnx_send_me_set_lp_level(sdiodev->rwnx_hw, 1);
+//	rwnx_send_me_set_lp_level(sdiodev->rwnx_hw, 1);
 #ifdef CONFIG_WIFI_SUSPEND_FOR_LINUX
 	rwnx_init_wifi_suspend_node();
 #endif//CONFIG_WIFI_SUSPEND_FOR_LINUX
@@ -652,7 +652,7 @@ static int aicwf_sdio_suspend(struct device *dev)
 		break;
 	}
 #ifdef CONFIG_GPIO_WAKEUP
-//	rwnx_enable_hostwake_irq();
+	//rwnx_enable_hostwake_irq();
 #endif
 #endif
 #if 0
@@ -680,7 +680,7 @@ static int aicwf_sdio_resume(struct device *dev)
 
 	sdio_dbg("%s enter \n", __func__);
 #ifdef CONFIG_GPIO_WAKEUP
-//	rwnx_disable_hostwake_irq();
+	//rwnx_disable_hostwake_irq();
 #endif
 	//dev_pm_clear_wake_irq(dev);
 	list_for_each_entry_safe(rwnx_vif, tmp, &sdiodev->rwnx_hw->vifs, list) {
@@ -696,7 +696,7 @@ static int aicwf_sdio_resume(struct device *dev)
 	#endif//CONFIG_WIFI_SUSPEND_FOR_LINUX
 
 
-//	aicwf_sdio_hal_irqhandler(sdiodev->func);
+	//aicwf_sdio_hal_irqhandler(sdiodev->func);
 
 #if 0
 	sdio_dbg("%s SDIOWIFI_INTR_CONFIG_REG Enable\n", __func__);
@@ -1386,8 +1386,8 @@ int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt)
 	int allign_len = 0;
 	int headroom;
 
-	sdio_header[0] = ((pkt->len - sizeof(struct rwnx_txhdr) + sizeof(struct txdesc_api)) & 0xff);
-	sdio_header[1] = (((pkt->len - sizeof(struct rwnx_txhdr) + sizeof(struct txdesc_api)) >> 8)&0x0f);
+	sdio_header[0] = ((pkt->len - txhdr->sw_hdr->headroom + sizeof(struct txdesc_api)) & 0xff);
+	sdio_header[1] = (((pkt->len - txhdr->sw_hdr->headroom + sizeof(struct txdesc_api)) >> 8)&0x0f);
 	sdio_header[2] = 0x01; //data
 	if (tx_priv->sdiodev->chipid == PRODUCT_ID_AIC8801 || 
         tx_priv->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
@@ -1505,7 +1505,7 @@ static int aicwf_sdio_bus_start(struct device *dev)
 #include "linux/sched/rt.h"
 #endif
 
-int bustx_thread_prio = 1;
+int bustx_thread_prio = 2;
 module_param_named(bustx_thread_prio, bustx_thread_prio, int, 0644);
 //module_param(bustx_thread_prio, int, 0);
 int busrx_thread_prio = 1;
@@ -1975,7 +1975,7 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 	u8 byte_mode_disable = 0x1;//1: no byte mode
 	int ret = 0;
 	struct aicbsp_feature_t feature;
-	u8 val = 0;
+	//u8 val = 0;
     u8 val1 = 0;
 
 	aicbsp_get_feature(&feature, NULL);
@@ -1991,6 +1991,7 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
         sdio_release_host(sdiodev->func);
         return ret;
     }
+#if 0
     if (host->ios.timing == MMC_TIMING_UHS_DDR50) {
         val = 0x21;//0x1D;//0x5;
     } else {
@@ -2023,7 +2024,8 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 		AICWFDBG(LOGINFO, "Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	}
 #endif
-
+#endif
+	AICWFDBG(LOGINFO, "####### Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	ret = sdio_set_block_size(sdiodev->func, SDIOWIFI_FUNC_BLOCKSIZE);
 	if (ret < 0) {
 		AICWFDBG(LOGERROR, "set blocksize fail %d\n", ret);
